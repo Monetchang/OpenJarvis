@@ -32,6 +32,8 @@ async def handle_card_action(request: Request, background_tasks: BackgroundTasks
     data = await request.json()
     
     # 验证token
+    if not settings.feishu_verification_token:
+        return {"code": 500, "msg": "Feishu verification token not configured"}
     if data.get("token") != settings.feishu_verification_token:
         return {"code": 403, "msg": "Invalid token"}
     

@@ -1,13 +1,13 @@
 from pydantic_settings import BaseSettings
-from typing import Literal
+from typing import Literal, Optional
 
 
 class Settings(BaseSettings):
-    feishu_app_id: str
-    feishu_app_secret: str
-    feishu_verification_token: str
+    feishu_app_id: Optional[str] = None
+    feishu_app_secret: Optional[str] = None
+    feishu_verification_token: Optional[str] = None
     feishu_encrypt_key: str = ""
-    feishu_webhook_url: str
+    feishu_webhook_url: Optional[str] = None
     
     llm_provider: Literal["openai", "deepseek"] = "openai"
     
@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
 
 
 settings = Settings()

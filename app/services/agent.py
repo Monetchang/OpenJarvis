@@ -7,12 +7,16 @@ from typing import List
 class AgentService:
     def __init__(self):
         if settings.llm_provider == "deepseek":
+            if not settings.deepseek_api_key:
+                raise ValueError("DeepSeek API key not configured")
             self.client = AsyncOpenAI(
                 api_key=settings.deepseek_api_key,
                 base_url=settings.deepseek_base_url
             )
             self.model = settings.deepseek_model
         else:
+            if not settings.openai_api_key:
+                raise ValueError("OpenAI API key not configured")
             self.client = AsyncOpenAI(
                 api_key=settings.openai_api_key,
                 base_url=settings.openai_base_url

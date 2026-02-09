@@ -14,6 +14,9 @@ class FeishuService:
     
     async def get_access_token(self) -> str:
         """获取访问令牌"""
+        if not self.app_id or not self.app_secret:
+            raise ValueError("Feishu app_id and app_secret must be configured")
+        
         if self._access_token and time.time() < self._token_expire_time:
             return self._access_token
         
@@ -48,9 +51,11 @@ class FeishuService:
     
     async def update_card(self, token: str, card: Dict):
         """更新消息卡片"""
+        access_token = await self.get_access_token()
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://open.feishu.cn/open-apis/im/v1/messages/update_card",
+                headers={"Authorization": f"Bearer {access_token}"},
                 json={
                     "token": token,
                     "card": card
