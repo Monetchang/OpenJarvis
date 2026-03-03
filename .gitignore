@@ -1,18 +1,42 @@
+# 环境与密钥
 .env
+.env.local
+.env.*.local
+
+# 系统
+.DS_Store
+*.log
+
+# Python / 后端
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
+*.py[cod]
+*$py.class
 *.so
+.Python
+build/
+dist/
 *.egg
 *.egg-info/
-dist/
-build/
+*.egg-info
+.eggs/
 .venv/
 venv/
+env/
 .pytest_cache/
 .coverage
 htmlcov/
-.DS_Store
+.mypy_cache/
+.ruff_cache/
+*.manifest
 
+# 前端 (web/)
+web/node_modules/
+web/dist/
+web/.vite/
+web/.env.local
+web/.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache

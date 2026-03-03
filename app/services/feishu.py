@@ -2,7 +2,7 @@ import httpx
 import json
 import time
 from typing import Optional, Dict, Any, List
-from app.config import settings
+from app.core.config import settings
 
 
 class FeishuService:

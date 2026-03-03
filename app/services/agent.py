@@ -1,27 +1,25 @@
 from openai import AsyncOpenAI
-from app.config import settings
+from app.core.config import settings
 from app.models.schemas import TopicInfo
 from typing import List
 
 
 class AgentService:
     def __init__(self):
-        if settings.llm_provider == "deepseek":
-            if not settings.deepseek_api_key:
-                raise ValueError("DeepSeek API key not configured")
+        # 延迟初始化，仅在使用时检查 API key
+        self.client = None
+        self.model = settings.llm_model
+    
+    def _ensure_client(self):
+        """确保客户端已初始化"""
+        if self.client is None:
+            if not settings.AI_API_KEY:
+                raise ValueError("AI API key not configured")
+            
             self.client = AsyncOpenAI(
-                api_key=settings.deepseek_api_key,
-                base_url=settings.deepseek_base_url
+                api_key=settings.llm_api_key,
+                base_url=settings.llm_api_base
             )
-            self.model = settings.deepseek_model
-        else:
-            if not settings.openai_api_key:
-                raise ValueError("OpenAI API key not configured")
-            self.client = AsyncOpenAI(
-                api_key=settings.openai_api_key,
-                base_url=settings.openai_base_url
-            )
-            self.model = settings.openai_model
     
     async def generate_article(self, topic: TopicInfo) -> str:
         """根据选题生成文章"""
