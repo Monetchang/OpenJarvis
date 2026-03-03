@@ -21,6 +21,9 @@ from app.orchestration.graphs.runtime import register_graph
 
 
 class BlogState(TypedDict, total=False):
+    title: str
+    style: str
+    audience: str
     refs: list
     ref_cards: list
     idea: dict

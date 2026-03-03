@@ -73,6 +73,7 @@ def propose_outline(state: dict, config: RunnableConfig) -> dict:
     runtime = _get_runtime(config)
     _node_events(runtime, "propose_outline")
     title = state.get("title") or (state.get("idea") or {}).get("body_title") or "文章"
+    logger.info("[blog] propose_outline title=%r state_title=%r", title, state.get("title"))
     ref_cards = state.get("ref_cards") or []
     if state.get("outline_confirmed") and state.get("outline"):
         outline = state["outline"]
@@ -115,6 +116,7 @@ def plan_article(state: dict, config: RunnableConfig) -> dict:
     runtime = _get_runtime(config)
     _node_events(runtime, "plan_article")
     title = state.get("title") or (state.get("idea") or {}).get("body_title") or "文章"
+    logger.info("[blog] plan_article title=%r state_title=%r", title, state.get("title"))
     ref_cards = state.get("ref_cards") or []
     outline = state.get("outline") or {}
     article_plan = get_ai_service().plan_article(
@@ -177,6 +179,7 @@ def write_sections(state: dict, config: RunnableConfig) -> dict:
     sections_data = dict(state.get("sections") or {})
     ai = get_ai_service()
     article_title = state.get("title") or ""
+    logger.info("[blog] write_sections article_title=%r state_title=%r", article_title, state.get("title"))
     for sec in outline.get("sections", []):
         sid = sec.get("id", f"s{len(sections_data)}")
         if scope_key and sid != scope_key:

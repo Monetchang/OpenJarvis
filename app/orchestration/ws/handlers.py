@@ -394,6 +394,7 @@ def handle_workflow_start(workflow_id: uuid.UUID, payload: dict, app: Any = None
         }
         if p.idea_id is not None:
             params["idea_id"] = p.idea_id
+        logger.info("[handler] workflow.start title=%r refs_count=%d style=%r", p.title, len(p.refs), p.style)
         w_repo.update_input_params(workflow_id, params)
 
         before_seq = e_repo.max_seq(workflow_id)

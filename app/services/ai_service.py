@@ -193,6 +193,7 @@ class AIService:
             audience=audience,
             refs_block=refs_block or "（无）",
         )
+        logger.info("[blog_outline] prompt=\n%s", prompt)
         messages = [{"role": "user", "content": prompt}]
         if on_thinking_chunk:
             raw_parts = []

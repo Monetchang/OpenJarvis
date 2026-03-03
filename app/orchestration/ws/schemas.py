@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 ALLOWED_STYLES = frozenset(["专业报告", "博客随笔", "营销文案", "技术教程", "新闻资讯"])
@@ -13,6 +13,13 @@ class WorkflowStartPayload(BaseModel):
     language: str = "zh-CN"
     length: str = "medium"
     idea_id: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def title_nonempty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("title must be non-empty")
+        return v.strip()
 
 
 class WorkflowStartMessage(BaseModel):
