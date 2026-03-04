@@ -3,7 +3,7 @@
 RSS 订阅源 Pydantic 模式
 """
 from pydantic import BaseModel, validator
-from typing import Optional
+from typing import Optional, List
 from croniter import croniter
 
 
@@ -13,6 +13,7 @@ class FeedCreate(BaseModel):
     url: str
     pushCount: int = 10
     isTrusted: bool = False
+    fetchNow: bool = False
 
     @validator("pushCount")
     def validate_push_count(cls, v):
@@ -27,12 +28,19 @@ class FeedUpdate(BaseModel):
     url: Optional[str] = None
     pushCount: Optional[int] = None
     isTrusted: Optional[bool] = None
+    fetchNow: bool = False
 
     @validator("pushCount")
     def validate_push_count(cls, v):
         if v is not None and not 1 <= v <= 50:
             raise ValueError("推送数量必须在1-50之间")
         return v
+
+
+class BatchFeedCreate(BaseModel):
+    """批量创建订阅源请求"""
+    feeds: List[FeedCreate]
+    fetchNow: bool = False
 
 
 class FeedResponse(BaseModel):

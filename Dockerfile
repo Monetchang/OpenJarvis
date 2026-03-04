@@ -8,10 +8,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制应用代码
 COPY . .
+RUN chmod +x /app/docker-entrypoint.sh
 
-# 暴露端口
-EXPOSE 8000
+RUN apt-get update && apt-get install -y postgresql-client && rm -rf /var/lib/apt/lists/*
 
-# 启动命令
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+EXPOSE 12135
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "12135", "--workers", "4"]
 

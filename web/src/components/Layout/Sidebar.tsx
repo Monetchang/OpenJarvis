@@ -1,5 +1,5 @@
 import { Layout, Menu } from 'antd'
-import { EditOutlined, SettingOutlined } from '@ant-design/icons'
+import { EditOutlined, SettingOutlined, UnorderedListOutlined } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 
 const { Sider } = Layout
@@ -18,6 +18,11 @@ export default function Sidebar({ collapsed, onCollapse }: SidebarProps) {
       key: '/writing-assistant',
       icon: <EditOutlined />,
       label: '写作助手',
+    },
+    {
+      key: '/feeds',
+      icon: <UnorderedListOutlined />,
+      label: '订阅源管理',
     },
     {
       key: '/settings',

@@ -1,17 +1,25 @@
 #!/bin/bash
-# 初始化数据库：创建用户、数据库、表结构
+# 初始化数据库：创建用户、数据库、表结构（从 .env 读取配置）
 
 set -e
+cd "$(dirname "$0")/.."
 
-DB_HOST="localhost"
-DB_PORT="5432"
-DB_NAME="trendradar"
-DB_USER="t_admin"
-DB_PASS="12345678"
-SUPERUSER="${PGUSER:-$(whoami)}"
+if [ -f .env ]; then
+  set -a
+  source .env
+  set +a
+fi
 
-echo "==> 创建用户 $DB_USER"
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$SUPERUSER" -d postgres <<SQL
+DB_HOST="${POSTGRES_HOST:-localhost}"
+DB_PORT="${POSTGRES_PORT:-5432}"
+DB_NAME="${POSTGRES_DB:-openjarvis}"
+DB_USER="${POSTGRES_USER:-postgres}"
+DB_PASS="${POSTGRES_PASSWORD:-}"
+SUPERUSER="${PGUSER:-$DB_USER}"
+
+if [ "$DB_USER" != "$SUPERUSER" ] && [ -n "$DB_PASS" ]; then
+  echo "==> 创建用户 $DB_USER"
+  psql -h "$DB_HOST" -p "$DB_PORT" -U "$SUPERUSER" -d postgres <<SQL
 DO \$\$
 BEGIN
   IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '$DB_USER') THEN
@@ -22,6 +30,7 @@ BEGIN
 END
 \$\$;
 SQL
+fi
 
 echo "==> 创建数据库 $DB_NAME"
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$SUPERUSER" -d postgres <<SQL
@@ -38,7 +47,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;
 SQL
 
 echo "==> 创建基础表"
-PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" <<SQL
+export PGPASSWORD="$DB_PASS"
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" <<SQL
 -- rss_feeds
 CREATE TABLE IF NOT EXISTS rss_feeds (
     id VARCHAR PRIMARY KEY,

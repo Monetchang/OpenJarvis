@@ -12,7 +12,7 @@ from app.core.database import get_db
 from app.core.config import settings
 from app.models.feed import RSSFeed
 from app.models.config import AppConfig
-from app.schemas.feed import FeedCreate, FeedUpdate, FeedResponse
+from app.schemas.feed import FeedCreate, FeedUpdate, FeedResponse, BatchFeedCreate
 from app.schemas.common import ResponseModel
 from app.services.crawler_service import get_crawler_service, fetch_all_active_feeds
 from app.utils.validators import validate_url
@@ -132,7 +132,8 @@ def create_feed(feed_data: FeedCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(new_feed)
         logger.info(f"订阅源创建成功: id={new_feed.id}, name={new_feed.name}")
-        fetch_all_active_feeds(db)
+        if getattr(feed_data, "fetchNow", False):
+            fetch_all_active_feeds(db)
         return {
             "code": 0,
             "message": "添加成功",
@@ -151,6 +152,62 @@ def create_feed(feed_data: FeedCreate, db: Session = Depends(get_db)):
         db.rollback()
         logger.error(f"创建订阅源失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"创建订阅源失败: {str(e)}")
+
+
+@router.post("/batch-create")
+def batch_create_feeds(body: BatchFeedCreate, db: Session = Depends(get_db)):
+    """批量添加订阅源，支持 JSON 列表"""
+    import uuid
+    crawler_service = get_crawler_service()
+    rss_schedule = get_config_value(db, "rss_schedule", settings.RSS_SCHEDULE)
+    translation_enabled = get_config_value(db, "translation_enabled", settings.TRANSLATION_ENABLED)
+    created = []
+    skipped = []
+    failed = []
+    for item in body.feeds:
+        try:
+            if not validate_url(item.url):
+                failed.append({"name": item.name, "url": item.url, "reason": "RSS URL 格式不正确"})
+                continue
+            if not crawler_service.validate_rss_url(item.url):
+                failed.append({"name": item.name, "url": item.url, "reason": "无法访问该RSS源"})
+                continue
+            existing = db.query(RSSFeed).filter(RSSFeed.feed_url == item.url).first()
+            if existing:
+                skipped.append({"name": item.name, "url": item.url})
+                continue
+            feed_id = f"feed_{uuid.uuid4().hex[:8]}"
+            new_feed = RSSFeed(
+                id=feed_id,
+                name=item.name,
+                feed_url=item.url,
+                is_active=1,
+                schedule=rss_schedule,
+                push_count=item.pushCount,
+                enable_translation=1 if translation_enabled else 0,
+                is_trusted=1 if item.isTrusted else 0,
+            )
+            db.add(new_feed)
+            db.commit()
+            db.refresh(new_feed)
+            created.append({
+                "id": new_feed.id,
+                "name": new_feed.name,
+                "url": new_feed.feed_url,
+                "pushCount": new_feed.push_count,
+                "isTrusted": bool(new_feed.is_trusted),
+                "createdAt": new_feed.created_at.isoformat() if new_feed.created_at else ""
+            })
+        except Exception as e:
+            db.rollback()
+            failed.append({"name": item.name, "url": item.url, "reason": str(e)})
+    if body.fetchNow and created:
+        fetch_all_active_feeds(db)
+    return {
+        "code": 0,
+        "message": "批量添加完成",
+        "data": {"created": created, "skipped": skipped, "failed": failed}
+    }
 
 
 @router.put("/update/{feedId}")
@@ -178,7 +235,8 @@ def update_feed(feedId: str, feed_data: FeedUpdate, db: Session = Depends(get_db
     feed.enable_translation = 1 if translation_enabled else 0
     db.commit()
     db.refresh(feed)
-    fetch_all_active_feeds(db)
+    if getattr(feed_data, "fetchNow", False):
+        fetch_all_active_feeds(db)
     return {
         "code": 0,
         "message": "更新成功",

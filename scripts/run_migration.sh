@@ -2,17 +2,20 @@
 # 执行数据库迁移脚本
 
 set -e
+cd "$(dirname "$0")/.."
 
 # 读取环境变量
 if [ -f .env ]; then
+    set -a
     source .env
+    set +a
 fi
 
 # 设置默认值
 POSTGRES_USER=${POSTGRES_USER:-postgres}
 POSTGRES_HOST=${POSTGRES_HOST:-localhost}
 POSTGRES_PORT=${POSTGRES_PORT:-5432}
-POSTGRES_DB=${POSTGRES_DB:-rss_ai_service}
+POSTGRES_DB=${POSTGRES_DB:-openjarvis}
 
 echo "执行数据库迁移..."
 echo "数据库: $POSTGRES_DB"
@@ -21,6 +24,9 @@ echo "用户: $POSTGRES_USER"
 echo ""
 
 # 执行迁移文件
+echo "执行迁移: 001_add_fields.sql"
+psql -U $POSTGRES_USER -h $POSTGRES_HOST -p $POSTGRES_PORT -d $POSTGRES_DB -f app/migrations/001_add_fields.sql
+
 echo "执行迁移: 002_add_filter_fields.sql"
 psql -U $POSTGRES_USER -h $POSTGRES_HOST -p $POSTGRES_PORT -d $POSTGRES_DB -f app/migrations/002_add_filter_fields.sql
 

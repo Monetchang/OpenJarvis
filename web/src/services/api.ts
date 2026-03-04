@@ -37,16 +37,21 @@ export const api = {
     return response.data.feeds
   },
 
-  async createFeed(feed: Omit<RssFeed, 'id' | 'createdAt'>): Promise<RssFeed> {
+  async createFeed(
+    feed: Omit<RssFeed, 'id' | 'createdAt'> & { fetchNow?: boolean }
+  ): Promise<RssFeed> {
     const response = await request.post('/feed/create', feed, {
-      timeout: 480000, // 添加时会拉取文章，耗时较长，8 分钟
+      timeout: feed.fetchNow ? 480000 : 30000,
     })
     return response.data
   },
 
-  async updateFeed(id: string, feed: Partial<RssFeed>): Promise<RssFeed> {
+  async updateFeed(
+    id: string,
+    feed: Partial<RssFeed> & { fetchNow?: boolean }
+  ): Promise<RssFeed> {
     const response = await request.put(`/feed/update/${id}`, feed, {
-      timeout: 480000, // 更新可能触发重新拉取，8 分钟
+      timeout: feed.fetchNow ? 480000 : 30000,
     })
     return response.data
   },
@@ -65,6 +70,18 @@ export const api = {
     await request.post('/feed/fetch', undefined, {
       timeout: 360000, // 抓取所有源可能较久，6 分钟
     })
+  },
+
+  async batchCreateFeeds(
+    feeds: Array<Omit<RssFeed, 'id' | 'createdAt'>>,
+    fetchNow?: boolean
+  ): Promise<{ created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] }> {
+    const response = await request.post<{ data: { created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] } }>(
+      '/feed/batch-create',
+      { feeds, fetchNow: !!fetchNow },
+      { timeout: fetchNow ? 480000 : 60000 }
+    )
+    return (response as { data: { created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] } }).data
   },
 
   // 文章推送（服务端可能触发 fetch，8 分钟内使用缓存）

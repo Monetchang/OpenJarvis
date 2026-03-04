@@ -446,7 +446,7 @@ export default function Chat() {
           <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
             返回
           </Button>
-          <h1 className="text-xl font-medium m-0">创作 Chat</h1>
+          <h1 className="text-xl font-medium m-0">创作工作台</h1>
         </div>
         <Card className="mb-4">
           <p className="text-gray-600 mb-2">缺少选题信息，请从创作入口进入</p>
@@ -470,7 +470,7 @@ export default function Chat() {
         <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
           返回
         </Button>
-        <h1 className="text-xl font-medium m-0">创作 Chat</h1>
+        <h1 className="text-xl font-medium m-0">创作工作台</h1>
       </div>
       {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
       <HeaderBar
