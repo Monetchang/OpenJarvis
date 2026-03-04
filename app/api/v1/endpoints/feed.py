@@ -109,8 +109,19 @@ def create_feed(feed_data: FeedCreate, db: Session = Depends(get_db)):
         # 检查是否已存在
         existing = db.query(RSSFeed).filter(RSSFeed.feed_url == feed_data.url).first()
         if existing:
-            logger.warning(f"订阅源已存在: {feed_data.url}")
-            raise HTTPException(status_code=400, detail="该订阅源已存在")
+            logger.info(f"订阅源已存在，直接返回: {feed_data.url}")
+            return {
+                "code": 0,
+                "message": "该订阅源已存在",
+                "data": {
+                    "id": existing.id,
+                    "name": existing.name,
+                    "url": existing.feed_url,
+                    "pushCount": existing.push_count,
+                    "isTrusted": bool(existing.is_trusted),
+                    "createdAt": existing.created_at.isoformat() if existing.created_at else ""
+                }
+            }
         
         # 从数据库读取全局配置
         rss_schedule = get_config_value(db, "rss_schedule", settings.RSS_SCHEDULE)

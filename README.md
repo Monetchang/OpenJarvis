@@ -25,6 +25,7 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
+- 2025-03-04 统一 HTTP 客户端（`app/core/http_client.py`）：RSS 抓取与 fetch_url 共用，支持代理（RSS_USE_PROXY、RSS_PROXY_URL、socks5h）、超时、浏览器 UA；添加 RSS 源时「已存在」返回 200 而非 400；修复 logging_middleware 读取 body 导致 BaseHTTPMiddleware 崩溃。
 - 2025-03-04 RSS 添加/更新支持 fetchNow 参数控制是否立即拉取（默认关闭）；批量导入 RSS 源（JSON 文件）；Demo GIF 展示。
 - 2025-03-03 Added Docker deployment support.
 - 2025-03-02 Feeds management page and FeedManager component.

@@ -4,12 +4,13 @@ import logging
 import re
 from typing import Any
 
-import requests
+from app.core import http_client as hc
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
 
-def fetch_url(url: str, timeout: int = 15, max_summary_chars: int = 2000) -> dict[str, Any]:
+def fetch_url(url: str, max_summary_chars: int = 2000) -> dict[str, Any]:
     """
     抓取 URL 并抽取 title 与正文摘要。
 
@@ -19,11 +20,22 @@ def fetch_url(url: str, timeout: int = 15, max_summary_chars: int = 2000) -> dic
     """
     logger.info("[fetch] START url=%s", url)
     out: dict[str, Any] = {"url": url, "title": url, "summary": ""}
+
+    session = hc.create_session(
+        use_proxy=settings.RSS_USE_PROXY,
+        proxy_url=settings.RSS_PROXY_URL,
+        proxy_https_url=settings.RSS_PROXY_HTTPS_URL,
+        no_proxy=settings.RSS_NO_PROXY,
+        retries=settings.RSS_HTTP_RETRIES,
+        headers=hc.BROWSER_HEADERS,
+    )
+
     try:
-        resp = requests.get(
+        resp = hc.get(
             url,
-            timeout=timeout,
-            headers={"User-Agent": "OpenJarvis/1.0 Blog Fetcher"},
+            session=session,
+            connect_timeout=settings.RSS_HTTP_CONNECT_TIMEOUT,
+            read_timeout=settings.RSS_HTTP_READ_TIMEOUT,
         )
         resp.raise_for_status()
         html = resp.text
@@ -54,10 +66,8 @@ def _clean_text(text: str) -> str:
 
 
 def _extract_body_text(html: str) -> str:
-    # 去掉 script/style/nav/header/footer/aside/noscript
     for tag in ("script", "style", "nav", "header", "footer", "aside", "noscript"):
         html = re.sub(rf"<{tag}[^>]*>[\s\S]*?</{tag}>", "", html, flags=re.I)
-    # 优先从 article 或 main 取正文
     for tag in ("article", "main"):
         m = re.search(rf"<{tag}[^>]*>([\s\S]*?)</{tag}>", html, re.I)
         if m:
@@ -66,7 +76,6 @@ def _extract_body_text(html: str) -> str:
             text = re.sub(r"\s+", " ", text).strip()
             if len(text) > 100:
                 return text
-    # fallback: 全文档去标签
     text = re.sub(r"<[^>]+>", " ", html)
     text = re.sub(r"\s+", " ", text)
     return text.strip()

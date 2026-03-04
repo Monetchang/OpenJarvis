@@ -15,10 +15,9 @@ from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 from .parser import RSSParser, ParsedRSSItem
+from app.core import http_client as hc
 from app.utils.time_utils import get_configured_time, is_within_days, DEFAULT_TIMEZONE
 
 logger = logging.getLogger(__name__)
@@ -71,9 +70,12 @@ class RSSFetcher:
         feeds: List[RSSFeedConfig],
         request_interval: int = 2000,
         timeout: int = 15,
-        connect_timeout: int = 3,
+        connect_timeout: int = 10,
         use_proxy: bool = False,
         proxy_url: str = "",
+        proxy_https_url: str = "",
+        no_proxy: str = "",
+        retries: int = 1,
         timezone: str = DEFAULT_TIMEZONE,
         freshness_enabled: bool = True,
         default_max_age_days: int = 3,
@@ -99,6 +101,9 @@ class RSSFetcher:
         self.connect_timeout = connect_timeout
         self.use_proxy = use_proxy
         self.proxy_url = proxy_url
+        self.proxy_https_url = proxy_https_url
+        self.no_proxy = no_proxy
+        self.retries = retries
         self.timezone = timezone
         self.freshness_enabled = freshness_enabled
         self.default_max_age_days = default_max_age_days
@@ -112,25 +117,14 @@ class RSSFetcher:
         return self._tl.session
 
     def _create_session(self) -> requests.Session:
-        """创建请求会话"""
-        session = requests.Session()
-        retry = Retry(total=1, backoff_factor=0.3)
-        adapter = HTTPAdapter(max_retries=retry)
-        session.mount("http://", adapter)
-        session.mount("https://", adapter)
-        session.headers.update({
-            "User-Agent": "OpenJarvis/1.0 RSS Reader",
-            "Accept": "application/feed+json, application/json, application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        })
-
-        if self.use_proxy and self.proxy_url:
-            session.proxies = {
-                "http": self.proxy_url,
-                "https": self.proxy_url,
-            }
-
-        return session
+        return hc.create_session(
+            use_proxy=self.use_proxy,
+            proxy_url=self.proxy_url,
+            proxy_https_url=self.proxy_https_url,
+            no_proxy=self.no_proxy,
+            retries=self.retries,
+            headers=hc.RSS_HEADERS,
+        )
 
     def _filter_by_freshness(
         self,
@@ -185,7 +179,12 @@ class RSSFetcher:
             (条目列表, 错误信息) 元组
         """
         try:
-            response = self._get_session().get(feed.url, timeout=(self.connect_timeout, self.timeout))
+            response = hc.get(
+                feed.url,
+                session=self._get_session(),
+                connect_timeout=self.connect_timeout,
+                read_timeout=self.timeout,
+            )
             response.raise_for_status()
 
             parsed_items = self.parser.parse(response.text, feed.url)

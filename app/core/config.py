@@ -71,11 +71,16 @@ class Settings(BaseSettings):
     
     # RSS 配置
     RSS_TIMEOUT: int = 10
-    RSS_CONNECT_TIMEOUT: int = 3
+    RSS_CONNECT_TIMEOUT: int = 10
     RSS_REQUEST_INTERVAL: int = 2000
     RSS_MAX_CONCURRENT: int = 8
     RSS_USE_PROXY: bool = False
     RSS_PROXY_URL: str = ""
+    RSS_PROXY_HTTPS_URL: str = ""        # 仅覆盖 https 代理，留空则与 RSS_PROXY_URL 相同
+    RSS_NO_PROXY: str = ""               # 不走代理的域名，逗号分隔
+    RSS_HTTP_CONNECT_TIMEOUT: int = 10
+    RSS_HTTP_READ_TIMEOUT: int = 10
+    RSS_HTTP_RETRIES: int = 1
     TIMEZONE: str = "Asia/Shanghai"
     RSS_SCHEDULE: str = "0 9 * * *"  # 全局 RSS 抓取定时（cron 表达式），所有源共享
     

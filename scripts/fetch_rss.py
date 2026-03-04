@@ -47,9 +47,13 @@ def fetch_all_feeds():
         fetcher = RSSFetcher(
             feeds=feed_configs,
             request_interval=settings.RSS_REQUEST_INTERVAL,
-            timeout=settings.RSS_TIMEOUT,
+            timeout=settings.RSS_HTTP_READ_TIMEOUT,
+            connect_timeout=settings.RSS_HTTP_CONNECT_TIMEOUT,
             use_proxy=settings.RSS_USE_PROXY,
             proxy_url=settings.RSS_PROXY_URL,
+            proxy_https_url=settings.RSS_PROXY_HTTPS_URL,
+            no_proxy=settings.RSS_NO_PROXY,
+            retries=settings.RSS_HTTP_RETRIES,
             timezone=settings.TIMEZONE,
             freshness_enabled=True,
             default_max_age_days=3
