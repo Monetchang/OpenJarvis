@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+.git
+__pycache__
+*.pyc
+.venv
+venv
+web/node_modules
+*.md
+!README.md

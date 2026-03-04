@@ -7,5 +7,4 @@ done
 ./scripts/init_db.sh 2>/dev/null || true
 ./scripts/run_migration.sh 2>/dev/null || true
 python scripts/init_ai_tables.py 2>/dev/null || true
-python scripts/add_feeds.py 2>/dev/null || true
 exec uvicorn app.main:app --host 0.0.0.0 --port 12135 --workers 4

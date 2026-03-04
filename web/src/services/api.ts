@@ -76,12 +76,12 @@ export const api = {
     feeds: Array<Omit<RssFeed, 'id' | 'createdAt'>>,
     fetchNow?: boolean
   ): Promise<{ created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] }> {
-    const response = await request.post<{ data: { created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] } }>(
+    const res = await request.post(
       '/feed/batch-create',
       { feeds, fetchNow: !!fetchNow },
       { timeout: fetchNow ? 480000 : 60000 }
-    )
-    return (response as { data: { created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] } }).data
+    ) as unknown as { data: { created: RssFeed[]; skipped: { name: string; url: string }[]; failed: { name: string; url: string; reason: string }[] } }
+    return res.data
   },
 
   // 文章推送（服务端可能触发 fetch，8 分钟内使用缓存）
