@@ -81,9 +81,22 @@ class Settings(BaseSettings):
     RSS_HTTP_CONNECT_TIMEOUT: int = 10
     RSS_HTTP_READ_TIMEOUT: int = 10
     RSS_HTTP_RETRIES: int = 1
+    RSS_HTTP_BACKOFF_BASE_MS: int = 400
     TIMEZONE: str = "Asia/Shanghai"
     RSS_SCHEDULE: str = "0 9 * * *"  # 全局 RSS 抓取定时（cron 表达式），所有源共享
-    
+    RSS_AGG_ENABLED: bool = True
+
+    # RSSHub（生产建议自建，勿依赖公共 rsshub.app）
+    RSSHUB_ENABLED: bool = False
+    RSSHUB_BASE_URL: str = ""
+    RSSHUB_FALLBACK_BASE_URLS: str = ""  # 逗号分隔
+
+    # Medium 兜底：rss_proxy | rsshub | api
+    MEDIUM_MODE: str = "rss_proxy"
+    MEDIUM_RSS_URL: str = "https://medium.com/feed/tag/artificial-intelligence"
+    MEDIUM_API_TOKEN: str = ""
+    MEDIUM_API_BASE_URL: str = ""
+
     # 推送测试模式（仅抓 1 个源、跳过选题，节省时间）
     PUSH_TEST_MODE: bool = False
 
@@ -127,6 +140,8 @@ class Settings(BaseSettings):
     
     # 开发环境（ENV=DEV 时启用 mock-events 等）
     ENV: str = "production"
+    # 启动预抓取（测试环境频繁重启时建议设为 false）
+    STARTUP_PREFETCH_ENABLED: bool = True
 
     # 编排：False=默认 GRAPH_RUN（LangGraph），True=旧多 stage 推进（stage_a->stage_b->stage_c）用于回滚
     ORCHESTRATION_USE_LEGACY_STAGE_FLOW: bool = False

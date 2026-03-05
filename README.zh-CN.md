@@ -26,6 +26,7 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
 
 ## 🔥 最新更新
 
+- 2025-03-05 AI RSS：RSS 聚合、RSSHub、Medium 配置；启动预抓取（启动 15 秒后执行，测试环境可设 `STARTUP_PREFETCH_ENABLED=false` 关闭）；解耦 `/today` 与自动抓取；crawler 进程锁与 StaleDataError 处理；init_db 不再自动建库；迁移 005。
 - 2025-03-05 Docker：仅 backend + frontend，不含 postgres，数据库由用户自行管理；移除默认 RSS 源与关键领域数据；修复 oc_conversations IntegrityError、api.ts batchCreateFeeds 类型错误。
 - 2025-03-04 统一 HTTP 客户端（`app/core/http_client.py`）：RSS 抓取与 fetch_url 共用，支持代理（RSS_USE_PROXY、RSS_PROXY_URL、socks5h）、超时、浏览器 UA；添加 RSS 源时「已存在」返回 200 而非 400；修复 logging_middleware 读取 body 导致 BaseHTTPMiddleware 崩溃。
 - 2025-03-04 RSS 添加/更新支持 fetchNow 参数控制是否立即拉取；批量导入 RSS 源（JSON 文件）；Demo GIF 展示。
@@ -138,6 +139,7 @@ cd web && npm install && npm run dev   # 前端 http://localhost:5173
 | `RESEND_API_KEY` | 邮件推送需自行在 [Resend](https://resend.com) 注册获取 API Key，免费 100 封/天 |
 | `RESEND_FROM` | 发件人，如 `OpenJarvis <onboarding@resend.dev>`（测试可用该地址） |
 | `INVITE_CODES` | 邀请码，逗号分隔，邮箱绑定时校验 |
+| `STARTUP_PREFETCH_ENABLED` | 启动预抓取，测试环境频繁重启时设为 `false` |
 
 ## License
 

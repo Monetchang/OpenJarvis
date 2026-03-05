@@ -3,7 +3,7 @@
 RSS 定时抓取调度：抓取 -> 生成选题 -> 邮件推送
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -86,6 +86,16 @@ def run_digest_job(force_fetch: bool = True, skip_when_no_fetch: bool = False) -
         return {"success": True, "fetched": fetched, "articles": len(articles), "topics": len(topics), "sent": sent}
 
 
+def run_fetch_only_job():
+    """仅抓取，不推邮件。用于启动预抓取、冷启动补数据。"""
+    with get_db_context() as db:
+        result = fetch_all_active_feeds(db, max_feeds=0)
+        if result.get("success"):
+            logger.info("[startup_fetch] 预抓取完成: %d 条", result.get("total_items", 0))
+        else:
+            logger.info("[startup_fetch] 预抓取跳过: %s", result.get("error", "unknown"))
+
+
 def _run_job():
     result = run_digest_job(force_fetch=True, skip_when_no_fetch=False)
     if not result["success"]:
@@ -96,6 +106,13 @@ def _run_job():
 
 def init_scheduler(cron_expr: str):
     _scheduler.add_job(_run_job, CronTrigger.from_crontab(cron_expr), id=JOB_ID)
+    if getattr(settings, "STARTUP_PREFETCH_ENABLED", True):
+        _scheduler.add_job(
+            run_fetch_only_job,
+            "date",
+            run_date=datetime.now() + timedelta(seconds=15),
+            id="startup_fetch",
+        )
     _scheduler.start()
 
 

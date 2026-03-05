@@ -32,11 +32,12 @@ END
 SQL
 fi
 
-echo "==> 创建数据库 $DB_NAME"
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$SUPERUSER" -d postgres <<SQL
-SELECT 'CREATE DATABASE $DB_NAME OWNER $DB_USER'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')\gexec
-SQL
+# 不自动创建数据库，请用户根据 .env 配置自行创建，例如：createdb -U postgres $DB_NAME
+echo "==> 检查数据库 $DB_NAME 是否存在（若不存在请先创建：createdb -U $SUPERUSER $DB_NAME）"
+if ! psql -h "$DB_HOST" -p "$DB_PORT" -U "$SUPERUSER" -d "$DB_NAME" -c '\q' 2>/dev/null; then
+  echo "错误: 数据库 $DB_NAME 不存在，请先创建数据库"
+  exit 1
+fi
 
 echo "==> 授权"
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$SUPERUSER" -d "$DB_NAME" <<SQL

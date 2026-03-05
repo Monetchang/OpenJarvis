@@ -15,6 +15,7 @@ class RSSItem(Base):
     title = Column(Text, nullable=False)
     feed_id = Column(String, ForeignKey("rss_feeds.id"), nullable=False)
     url = Column(Text, nullable=False)
+    guid = Column(String(512))
     published_at = Column(String)
     summary = Column(Text)
     author = Column(String)

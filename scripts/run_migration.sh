@@ -36,6 +36,9 @@ psql -U $POSTGRES_USER -h $POSTGRES_HOST -p $POSTGRES_PORT -d $POSTGRES_DB -f ap
 echo "执行迁移: 004_add_email_subscribers.sql"
 psql -U $POSTGRES_USER -h $POSTGRES_HOST -p $POSTGRES_PORT -d $POSTGRES_DB -f app/migrations/004_add_email_subscribers.sql
 
+echo "执行迁移: 005_add_rss_agg_fields.sql"
+psql -U $POSTGRES_USER -h $POSTGRES_HOST -p $POSTGRES_PORT -d $POSTGRES_DB -f app/migrations/005_add_rss_agg_fields.sql
+
 echo ""
 echo "迁移完成！"
 

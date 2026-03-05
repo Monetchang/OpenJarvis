@@ -26,6 +26,7 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
+- 2025-03-05 AI RSS: RSS aggregation, RSSHub, Medium config; startup pre-fetch (15s after boot, disable via `STARTUP_PREFETCH_ENABLED=false`); decouple `/today` from auto-fetch; crawler lock + StaleDataError handling; init_db no longer creates DB; migration 005.
 - 2025-03-05 Docker: backend + frontend only (no postgres); user manages DB separately; removed default RSS feeds and article domains; fixed oc_conversations IntegrityError, api.ts batchCreateFeeds type.
 - 2025-03-04 Unified HTTP client for RSS fetch and fetch_url; proxy support (RSS_USE_PROXY, socks5h); feed create returns 200 when already exists; fixed logging middleware crash.
 - 2025-03-04 RSS create/update supports fetchNow; batch import feeds; Demo GIF.
@@ -136,8 +137,9 @@ See `.env.example`. Main variables:
 | `AI_API_KEY` | AI service key (DeepSeek/OpenAI etc.) |
 | `AI_MODEL` | Model name |
 | `RESEND_API_KEY` | Email push—register at [Resend](https://resend.com) for API key (100 free emails/day) |
-| `RESEND_FROM` | Sender, e.g. `OpenJarvis <onboarding@resend.dev>` |
+| `RESEND_FROM` | Sender, e.g. `OpenJarvis <onboarding@resend.dev>` (quote the value) |
 | `INVITE_CODES` | Invite codes for email binding |
+| `STARTUP_PREFETCH_ENABLED` | Startup pre-fetch (set `false` when app restarts frequently in test) |
 
 ## License
 

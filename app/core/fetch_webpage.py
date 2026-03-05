@@ -31,7 +31,7 @@ def fetch_url(url: str, max_summary_chars: int = 2000) -> dict[str, Any]:
     )
 
     try:
-        resp = hc.get(
+        resp, _ = hc.get(
             url,
             session=session,
             connect_timeout=settings.RSS_HTTP_CONNECT_TIMEOUT,

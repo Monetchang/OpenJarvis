@@ -5,6 +5,7 @@
 代理、超时、UA 统一管理，供 RSS 抓取与 fetch_url 共用。
 """
 import logging
+import time
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -104,10 +105,10 @@ def get(
     session: requests.Session,
     connect_timeout: int = 10,
     read_timeout: int = 10,
-) -> requests.Response:
+) -> tuple[requests.Response, int]:
     """
     通过已配置的 session 发起 GET 请求。
-
+    返回 (response, elapsed_ms)。
     对 notable domain 自动打印代理类型与超时参数。
     """
     if _is_notable(url):
@@ -120,5 +121,7 @@ def get(
             connect_timeout,
             read_timeout,
         )
-
-    return session.get(url, timeout=(connect_timeout, read_timeout))
+    t0 = time.perf_counter()
+    resp = session.get(url, timeout=(connect_timeout, read_timeout))
+    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+    return resp, elapsed_ms

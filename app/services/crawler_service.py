@@ -6,15 +6,19 @@ RSS 爬虫服务层
 """
 import logging
 import time
+import threading
 from typing import List, Dict, Any, Set
 from datetime import datetime
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 from types import SimpleNamespace
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 from app.core.crawler import RSSFetcher, RSSFeedConfig
+
+_fetch_lock = threading.Lock()
 
 
 def _filterable_item(feed_id: str, item: Any, title: str, summary: str) -> SimpleNamespace:
@@ -78,10 +82,12 @@ class CrawlerService:
             return {"success": False, "error": "没有有效的 RSS 源配置"}
         logger.info("[fetch] Step1 构建配置 耗时=%.2fs", time.time() - t0)
 
-        # Step2: 清空当日
+        # Step2: 清空当日（synchronize_session=False 避免与后续修改的 existing 对象冲突）
         t_step = time.time()
         today = datetime.now().strftime("%Y-%m-%d")
-        deleted = db.query(RSSItemDB).filter(RSSItemDB.first_crawl_time == today).delete()
+        deleted = db.query(RSSItemDB).filter(RSSItemDB.first_crawl_time == today).delete(
+            synchronize_session=False
+        )
         if deleted:
             logger.info("[fetch] Step2 清空当日 %d 条 耗时=%.2fs", deleted, time.time() - t_step)
         else:
@@ -289,7 +295,21 @@ class CrawlerService:
 
         # Step7: commit
         t_step = time.time()
-        db.commit()
+        try:
+            db.commit()
+        except StaleDataError as e:
+            db.rollback()
+            logger.warning("[fetch] Step7 commit 失败(StaleDataError)，可能因外部删除了 rss_items: %s", e)
+            return {
+                "success": False,
+                "error": "数据已被并发修改（如执行了 seed 替换源），请刷新后重试",
+                "total_feeds": len(feed_configs),
+                "success_feeds": len(rss_data.items),
+                "failed_feeds": len(rss_data.failed_ids),
+                "total_items": 0,
+                "date": rss_data.date,
+                "crawl_time": rss_data.crawl_time,
+            }
         logger.info("[fetch] Step7 commit 耗时=%.2fs", time.time() - t_step)
 
         result = {
@@ -325,20 +345,28 @@ class CrawlerService:
 
 def fetch_all_active_feeds(db: Session, max_feeds: int = 0) -> Dict[str, Any]:
     """从数据库读取启用的 RSS 源并执行抓取。max_feeds>0 时仅抓前 N 个（测试用）"""
-    feeds = db.query(RSSFeed).filter(RSSFeed.is_active == 1).all()
-    if max_feeds > 0:
-        feeds = feeds[:max_feeds]
-    feed_list = [
-        {
-            "id": f.id,
-            "name": f.name,
-            "url": f.feed_url,
-            "max_items": f.push_count or 10,
-            "max_age_days": 90 if f.is_trusted else 30,
-        }
-        for f in feeds
-    ]
-    return get_crawler_service().fetch_feeds(feed_list, db)
+    acquired = _fetch_lock.acquire(blocking=False)
+    if not acquired:
+        logger.info("[fetch] 已有抓取任务在运行，跳过本次触发")
+        return {"success": False, "error": "已有抓取任务在运行，请稍后重试"}
+
+    try:
+        feeds = db.query(RSSFeed).filter(RSSFeed.is_active == 1).all()
+        if max_feeds > 0:
+            feeds = feeds[:max_feeds]
+        feed_list = [
+            {
+                "id": f.id,
+                "name": f.name,
+                "url": f.feed_url,
+                "max_items": f.push_count or 10,
+                "max_age_days": 90 if f.is_trusted else 30,
+            }
+            for f in feeds
+        ]
+        return get_crawler_service().fetch_feeds(feed_list, db)
+    finally:
+        _fetch_lock.release()
 
 
 # 全局单例

@@ -66,17 +66,9 @@ def get_today_articles(
     ).order_by(desc(RSSItem.published_at), desc(RSSItem.created_at)).all()
 
     if not articles:
-        logger.info("[today] 当日无文章，主动触发 RSS 抓取")
-        from app.services.crawler_service import fetch_all_active_feeds
-        fetch_all_active_feeds(db)
-        articles = db.query(RSSItem).filter(
-            RSSItem.first_crawl_time == today_str
-        ).order_by(desc(RSSItem.published_at), desc(RSSItem.created_at)).all()
-
-    if not articles:
         return {
             "code": 0,
-            "message": "数据库中暂无文章，请先抓取 RSS",
+            "message": "当日暂无文章，请点击「抓取」按钮获取最新内容",
             "data": {"articles": [], "total": 0, "filterTier": "none"}
         }
 

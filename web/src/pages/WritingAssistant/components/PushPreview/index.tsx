@@ -46,6 +46,9 @@ export default function PushPreview() {
     try {
       const data = await api.getTodayArticles()
       setTodayArticles(data)
+      if (data.length === 0) {
+        message.info('当日暂无文章，请点击右上角「抓取」按钮获取最新内容')
+      }
     } catch (error) {
       message.error('加载推送失败')
     } finally {

@@ -179,7 +179,7 @@ class RSSFetcher:
             (条目列表, 错误信息) 元组
         """
         try:
-            response = hc.get(
+            response, _ = hc.get(
                 feed.url,
                 session=self._get_session(),
                 connect_timeout=self.connect_timeout,
