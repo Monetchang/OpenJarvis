@@ -26,11 +26,12 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
 
 ## 🔥 最新更新
 
-- 2026-03-06 文章解读：新增 `POST /article/interpret/{articleId}`，调用 LLM 返回结构化解读（摘要、要点、行业影响、标签）；结果缓存至 DB（`interpret_result`）；支持 `?force=1` 强制重新解读；网站屏蔽抓取时返回友好提示。
-- 2026-03-06 历史存档：分页支持；查看历史 tab 时隐藏 IdeaGenerator；双语标题以 `中文（English）` 格式展示。
-- 2026-03-06 定时任务：Cron 使用 `.env` 中的 `TIMEZONE`（修复 Docker UTC 时区问题）；scheduler 独立容器运行（backend + scheduler + frontend）；推送前先查库，有今日文章和选题则直接用，否则抓取并生成。
-- 2026-03-06 RSS：改用 FeedParser UA 规避 403（MarkTechPost、AI News）；更新 Google AI Blog、Sebastian Raschka 地址；禁用 Papers with Code（Cloudflare）；新增 `scripts/diagnose_feeds.py` 诊断脚本。
-- 2026-03-06 时区：crawler、API、scheduler 的「今日」逻辑统一使用 `get_configured_time()`。
+- 2026-03-06 飞书推送：每日 digest 推送到飞书（与邮件并列）；支持自定义机器人 webhook 与 Flow webhook；`.env` 配置 `FEISHU_WEBHOOK_URL`（分号分隔多账号）；`POST /subscribe/feishu` 订阅 API；双语标题 `中文 (English)`；富文本分区、选题关联文章；`scripts/test_feishu_push.py`、`scripts/test_email_push.py` 测试脚本。
+- 2026-03-06 邮件：HTML digest 渐变标题、色块分区、选题卡片；`title_zh` 双语展示。
+- 2026-03-06 文章解读：`POST /article/interpret/{articleId}`；结构化解读缓存；`?force=1`；屏蔽抓取友好提示。
+- 2026-03-06 历史存档：分页；历史 tab 隐藏 IdeaGenerator；双语标题。
+- 2026-03-06 定时任务：Cron 使用 `TIMEZONE`；scheduler 独立容器；推送前先查库。
+- 2026-03-06 RSS：FeedParser UA；更新源地址；`scripts/diagnose_feeds.py`。
 - 2025-03-05 AI RSS：RSS 聚合、RSSHub、Medium 配置；启动预抓取（启动 15 秒后执行，测试环境可设 `STARTUP_PREFETCH_ENABLED=false` 关闭）；解耦 `/today` 与自动抓取；crawler 进程锁与 StaleDataError 处理；init_db 不再自动建库；迁移 005。
 - 2025-03-05 Docker：仅 backend + frontend，不含 postgres，数据库由用户自行管理；移除默认 RSS 源与关键领域数据；修复 oc_conversations IntegrityError、api.ts batchCreateFeeds 类型错误。
 - 2025-03-04 统一 HTTP 客户端（`app/core/http_client.py`）：RSS 抓取与 fetch_url 共用，支持代理（RSS_USE_PROXY、RSS_PROXY_URL、socks5h）、超时、浏览器 UA；添加 RSS 源时「已存在」返回 200 而非 400；修复 logging_middleware 读取 body 导致 BaseHTTPMiddleware 崩溃。
@@ -46,7 +47,7 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
 - **RSS 订阅**：多源订阅、关键词过滤、定时抓取
 - **AI 选题**：从新闻自动生成博客选题
 - **智能写作**：LangGraph 流程（大纲确认、分段撰写、质量校验）
-- **推送与分享**：邮件推送（Resend）、飞书 Webhook
+- **推送与分享**：邮件推送（Resend）、飞书 digest 推送（bot/Flow webhook）
 
 ## 🎬 快速开始
 
@@ -147,6 +148,7 @@ cd web && npm install && npm run dev   # 前端 http://localhost:5173
 | `INVITE_CODES` | 邀请码，逗号分隔，邮箱绑定时校验 |
 | `STARTUP_PREFETCH_ENABLED` | 启动预抓取，测试环境频繁重启时设为 `false` |
 | `TIMEZONE` | 定时任务与「今日」逻辑的时区（默认 `Asia/Shanghai`） |
+| `FEISHU_WEBHOOK_URL` | 飞书 digest 推送，webhook URL，分号分隔多账号（bot 或 Flow） |
 
 ## License
 

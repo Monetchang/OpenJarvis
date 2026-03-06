@@ -8,8 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.config import settings
-from app.models.subscriber import EmailSubscriber
-from app.schemas.user import SubscribeRequest
+from app.models.subscriber import EmailSubscriber, FeishuSubscriber
+from app.schemas.user import SubscribeRequest, FeishuSubscribeRequest
+from app.services.feishu import FEISHU_WEBHOOK_PREFIX_BOT, FEISHU_WEBHOOK_PREFIX_FLOW
 from app.services.scheduler_service import run_digest_job
 
 router = APIRouter()
@@ -75,6 +76,37 @@ def trigger_email_push(background_tasks: BackgroundTasks):
 def unsubscribe_email(email_id: int, db: Session = Depends(get_db)):
     """取消订阅"""
     sub = db.query(EmailSubscriber).filter(EmailSubscriber.id == email_id).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="订阅不存在")
+    sub.is_active = 0
+    db.commit()
+    return {"code": 0, "message": "已取消订阅"}
+
+
+@router.post("/feishu")
+def subscribe_feishu(req: FeishuSubscribeRequest, db: Session = Depends(get_db)):
+    """飞书群订阅：提交 webhook_url + 邀请码，用于每日推送"""
+    if not _check_invite_code(req.inviteCode):
+        raise HTTPException(status_code=400, detail="邀请码错误")
+    url = req.webhook_url.strip()
+    if not (url.startswith(FEISHU_WEBHOOK_PREFIX_BOT) or url.startswith(FEISHU_WEBHOOK_PREFIX_FLOW)):
+        raise HTTPException(status_code=400, detail="无效的飞书 webhook 地址")
+    existing = db.query(FeishuSubscriber).filter(FeishuSubscriber.webhook_url == url).first()
+    if existing:
+        if existing.is_active:
+            return {"code": 0, "message": "已订阅", "data": {"success": True}}
+        existing.is_active = 1
+        db.commit()
+    else:
+        db.add(FeishuSubscriber(webhook_url=url))
+        db.commit()
+    return {"code": 0, "message": "订阅成功", "data": {"success": True}}
+
+
+@router.delete("/feishu/{feishu_id}")
+def unsubscribe_feishu(feishu_id: int, db: Session = Depends(get_db)):
+    """取消飞书订阅"""
+    sub = db.query(FeishuSubscriber).filter(FeishuSubscriber.id == feishu_id).first()
     if not sub:
         raise HTTPException(status_code=404, detail="订阅不存在")
     sub.is_active = 0

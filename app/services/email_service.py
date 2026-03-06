@@ -15,37 +15,57 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _article_display_title(a: Dict) -> str:
+    """中英文标题：有 title_zh 且与 title 不同时显示「中文 (English)」"""
+    title = a.get("title", "")
+    title_zh = a.get("title_zh") or ""
+    if title_zh and title_zh.strip() and title_zh != title:
+        return f"{title_zh} ({title})"
+    return title
+
+
 def _build_digest_html(articles: List[Dict], topics: List[Dict], date_str: str) -> str:
-    """构建日报 HTML"""
+    """构建日报 HTML，带色块与分区样式"""
     articles_html = ""
-    for a in articles:
+    for i, a in enumerate(articles, 1):
+        disp = _article_display_title(a)
         articles_html += f"""
-        <li style="margin-bottom:12px;">
-            <a href="{a.get('url','')}" style="color:#2563eb;text-decoration:none;">{a.get('title','')}</a>
-            <span style="color:#6b7280;font-size:12px;"> · {a.get('source','')}</span>
+        <li style="margin-bottom:14px;padding:10px 12px;background:#f8fafc;border-radius:6px;border-left:3px solid #3b82f6;">
+            <a href="{a.get('url','')}" style="color:#1e40af;text-decoration:none;font-weight:500;">{disp}</a>
+            <span style="color:#64748b;font-size:12px;display:block;margin-top:4px;">{a.get('source','')}</span>
         </li>"""
     topics_html = ""
     for t in topics:
-        refs = t.get("relatedArticles", [])
-        ref_str = "".join(f'<a href="{r.get("url","")}" style="color:#6b7280;font-size:12px;">{r.get("title","")}</a> ' for r in refs[:3])
+        refs = t.get("relatedArticles", [])[:5]
+        ref_items = "".join(
+            f'<a href="{r.get("url","")}" style="color:#64748b;font-size:12px;text-decoration:none;display:inline-block;margin:2px 8px 2px 0;">· {r.get("title","")}</a>'
+            for r in refs
+        )
+        ref_block = f'<div style="margin-top:10px;padding-top:8px;border-top:1px dashed #bae6fd;">{ref_items}</div>' if ref_items else ""
         topics_html += f"""
-        <div style="margin-bottom:16px;padding:12px;background:#f9fafb;border-radius:8px;">
-            <div style="font-weight:600;margin-bottom:4px;">{t.get("title","")}</div>
-            <div style="color:#4b5563;font-size:14px;">{t.get("reason","")}</div>
-            <div style="margin-top:8px;font-size:12px;">{ref_str}</div>
+        <div style="margin-bottom:16px;padding:16px;background:linear-gradient(135deg,#f0f9ff 0%,#e0f2fe 100%);border-radius:8px;border-left:4px solid #0ea5e9;">
+            <div style="font-weight:700;font-size:15px;color:#0c4a6e;margin-bottom:8px;">{t.get("title","")}</div>
+            <div style="color:#475569;font-size:14px;line-height:1.5;">{t.get("reason","")}</div>
+            {ref_block}
         </div>"""
     return f"""
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"></head>
-<body style="font-family:sans-serif;max-width:640px;margin:0 auto;padding:24px;">
-<h2 style="color:#111;">OpenJarvis 每日推送 · {date_str}</h2>
-<h3 style="color:#374151;">今日文章</h3>
-<ul style="list-style:none;padding:0;">{articles_html}</ul>
-<h3 style="color:#374151;">AI 选题建议</h3>
-{topics_html}
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
-<p style="color:#9ca3af;font-size:12px;">由 OpenJarvis 自动推送 · 取消订阅请联系管理员</p>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;margin:0 auto;padding:24px;background:#f1f5f9;">
+<div style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+  <div style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);color:#fff;padding:20px 24px;">
+    <h1 style="margin:0;font-size:20px;font-weight:600;">OpenJarvis 每日推送</h1>
+    <p style="margin:8px 0 0;font-size:14px;opacity:.9;">{date_str}</p>
+  </div>
+  <div style="padding:24px;">
+    <div style="display:inline-block;background:#dbeafe;color:#1e40af;font-weight:600;font-size:13px;padding:6px 12px;border-radius:6px;margin-bottom:16px;">📰 今日文章</div>
+    <ul style="list-style:none;padding:0;margin:0;">{articles_html}</ul>
+    <div style="display:inline-block;background:#e0f2fe;color:#0c4a6e;font-weight:600;font-size:13px;padding:6px 12px;border-radius:6px;margin:24px 0 16px;">💡 AI 选题建议</div>
+    {topics_html}
+  </div>
+  <div style="background:#f8fafc;padding:12px 24px;text-align:center;color:#94a3b8;font-size:12px;">由 OpenJarvis 自动推送 · 取消订阅请联系管理员</div>
+</div>
 </body>
 </html>"""
 

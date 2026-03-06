@@ -120,6 +120,8 @@ class Settings(BaseSettings):
     FEISHU_APP_SECRET: str = ""
     FEISHU_VERIFICATION_TOKEN: str = ""
     FEISHU_ENCRYPT_KEY: str = ""
+    # 飞书推送：webhook URL，多个用分号分隔，与 feishu_subscribers 表合并推送
+    FEISHU_WEBHOOK_URL: str = ""
     
     # 兼容性别名
     @property

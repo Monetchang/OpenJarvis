@@ -10,6 +10,13 @@ class SubscribeRequest(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class FeishuSubscribeRequest(BaseModel):
+    webhook_url: str
+    inviteCode: str = Field(..., alias="inviteCode")
+
+    model_config = {"populate_by_name": True}
+
+
 class SubscribeResponse(BaseModel):
     success: bool
 

@@ -15,11 +15,12 @@ from app.core.config import settings
 from app.utils.time_utils import get_configured_time
 from app.models.article import RSSItem
 from app.models.feed import RSSFeed
-from app.models.subscriber import EmailSubscriber
+from app.models.subscriber import EmailSubscriber, FeishuSubscriber
 from app.models.ai import BlogTopic, TopicReference
 from app.services.crawler_service import fetch_all_active_feeds
 from app.services.ai_service import get_ai_service
 from app.services.email_service import send_digest
+from app.services.feishu import feishu_service
 
 logger = logging.getLogger(__name__)
 _scheduler = BackgroundScheduler()
@@ -99,13 +100,13 @@ def run_digest_job(force_fetch: bool = True, skip_when_no_fetch: bool = False) -
                         fetched = result.get("total_items", 0)
                     logger.info("[digest] 抓取完成: %d 条%s", fetched, " (测试模式)" if test_mode else "")
                     if skip_when_no_fetch and fetched == 0:
-                        return {"success": False, "fetched": 0, "articles": 0, "topics": 0, "sent": 0}
+                        return {"success": False, "fetched": 0, "articles": 0, "topics": 0, "sent": 0, "feishu_sent": 0}
                 articles = _get_today_articles(db, limit=10 if test_mode else 50)
             if not articles:
-                return {"success": False, "fetched": fetched, "articles": 0, "topics": 0, "sent": 0}
+                return {"success": False, "fetched": fetched, "articles": 0, "topics": 0, "sent": 0, "feishu_sent": 0}
             if not topics:
                 rss_items = [
-                    {"title": a.title, "url": a.url, "feed_id": feed_names.get(a.feed_id, ""), "summary": a.summary or ""}
+                    {"title": a.title, "title_zh": getattr(a, "title_zh", None), "url": a.url, "feed_id": feed_names.get(a.feed_id, ""), "summary": a.summary or ""}
                     for a in articles
                 ]
                 ai = get_ai_service()
@@ -120,7 +121,12 @@ def run_digest_job(force_fetch: bool = True, skip_when_no_fetch: bool = False) -
                     topics = []
 
         article_dicts = [
-            {"title": a.title, "url": a.url, "source": feed_names.get(a.feed_id, "")}
+            {
+                "title": a.title,
+                "title_zh": getattr(a, "title_zh", None),
+                "url": a.url,
+                "source": feed_names.get(a.feed_id, ""),
+            }
             for a in articles
         ]
         subscribers = db.query(EmailSubscriber.email).filter(EmailSubscriber.is_active == 1).all()
@@ -130,9 +136,19 @@ def run_digest_job(force_fetch: bool = True, skip_when_no_fetch: bool = False) -
         if to_emails:
             sent = send_digest(to_emails, article_dicts, topics, today_str)
             logger.info("[digest] 邮件已推送到 %d/%d 个邮箱", sent, len(to_emails))
-        else:
-            logger.warning("[digest] 无订阅邮箱，跳过推送")
-        return {"success": True, "fetched": fetched, "articles": len(articles), "topics": len(topics), "sent": sent}
+        feishu_subs = db.query(FeishuSubscriber.webhook_url).filter(FeishuSubscriber.is_active == 1).all()
+        feishu_urls = [s[0] for s in feishu_subs]
+        config_urls = [u.strip() for u in (settings.FEISHU_WEBHOOK_URL or "").split(";") if u.strip()]
+        feishu_urls = list(dict.fromkeys(feishu_urls + config_urls))
+        feishu_sent = 0
+        if feishu_urls:
+            for url in feishu_urls:
+                if feishu_service.send_digest_to_webhook(url, article_dicts, topics, today_str):
+                    feishu_sent += 1
+            logger.info("[digest] 飞书已推送到 %d/%d 个群", feishu_sent, len(feishu_urls))
+        if not to_emails and not feishu_urls:
+            logger.warning("[digest] 无订阅邮箱和飞书群，跳过推送")
+        return {"success": True, "fetched": fetched, "articles": len(articles), "topics": len(topics), "sent": sent, "feishu_sent": feishu_sent}
 
 
 def run_fetch_only_job():

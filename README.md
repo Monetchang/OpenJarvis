@@ -26,11 +26,12 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
-- 2026-03-06 Article Interpret: `POST /article/interpret/{articleId}` calls LLM to return structured interpretation (summary, key points, industry impact, tags); result cached in DB (`interpret_result`); supports `?force=1` to re-interpret; friendly error when site blocks crawling.
-- 2026-03-06 History: pagination support for history archive; IdeaGenerator hidden when viewing history tab; bilingual title display as `中文（English）` when both exist.
-- 2026-03-06 Scheduler: Cron uses `TIMEZONE` from .env (fixes Docker UTC mismatch); scheduler runs in separate container (backend + scheduler + frontend); digest checks DB first—uses cache if today's articles and topics exist, otherwise fetches and generates.
-- 2026-03-06 RSS: FeedParser UA to avoid 403 (MarkTechPost, AI News); updated Google AI Blog URL, Sebastian Raschka rss_feed.xml; disabled Papers with Code (Cloudflare); `scripts/diagnose_feeds.py` for feed diagnostics.
-- 2026-03-06 Timezone: All "today" logic uses `get_configured_time()` (crawler, API, scheduler) for consistency across Docker/local.
+- 2026-03-06 Feishu push: Digest push to Feishu (like email)—supports custom bot webhook and Flow webhook; `FEISHU_WEBHOOK_URL` in .env (semicolon-separated); `POST /subscribe/feishu` API; bilingual titles `中文 (English)`; rich formatting (sections, related articles); `scripts/test_feishu_push.py` and `scripts/test_email_push.py`.
+- 2026-03-06 Email: HTML digest with gradient header, section blocks, topic cards; `title_zh` for bilingual display.
+- 2026-03-06 Article Interpret: `POST /article/interpret/{articleId}`; structured interpretation cached in DB; `?force=1`; friendly error when site blocks crawling.
+- 2026-03-06 History: pagination; IdeaGenerator hidden on history tab; bilingual title display.
+- 2026-03-06 Scheduler: Cron uses `TIMEZONE`; scheduler in separate container; digest checks DB first.
+- 2026-03-06 RSS: FeedParser UA; updated feed URLs; `scripts/diagnose_feeds.py`.
 - 2025-03-05 AI RSS: RSS aggregation, RSSHub, Medium config; startup pre-fetch (15s after boot, disable via `STARTUP_PREFETCH_ENABLED=false`); decouple `/today` from auto-fetch; crawler lock + StaleDataError handling; init_db no longer creates DB; migration 005.
 - 2025-03-05 Docker: backend + frontend only (no postgres); user manages DB separately; removed default RSS feeds and article domains; fixed oc_conversations IntegrityError, api.ts batchCreateFeeds type.
 - 2025-03-04 Unified HTTP client for RSS fetch and fetch_url; proxy support (RSS_USE_PROXY, socks5h); feed create returns 200 when already exists; fixed logging middleware crash.
@@ -46,7 +47,7 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 - **RSS Feeds**: Multi-source subscription, keyword filtering, scheduled fetching
 - **AI Topics**: Auto-generate blog ideas from news
 - **Smart Writing**: LangGraph-driven flow (outline, drafting, quality validation)
-- **Push & Share**: Email push (Resend), Feishu Webhook
+- **Push & Share**: Email push (Resend), Feishu digest push (bot/Flow webhook)
 
 ## 🎬 Get Started
 
@@ -147,6 +148,7 @@ See `.env.example`. Main variables:
 | `INVITE_CODES` | Invite codes for email binding |
 | `STARTUP_PREFETCH_ENABLED` | Startup pre-fetch (set `false` when app restarts frequently in test) |
 | `TIMEZONE` | Timezone for cron and "today" logic (default `Asia/Shanghai`) |
+| `FEISHU_WEBHOOK_URL` | Feishu digest push—webhook URL(s), semicolon-separated (bot or Flow) |
 
 ## License
 
