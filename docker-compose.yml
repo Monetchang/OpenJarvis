@@ -5,6 +5,7 @@ services:
     ports:
       - "12135:12135"
     environment:
+      PYTHONUNBUFFERED: "1"
       POSTGRES_HOST: ${POSTGRES_HOST:-host.docker.internal}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_DB: ${POSTGRES_DB:-openjarvis}
@@ -16,6 +17,26 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     entrypoint: ["/bin/sh", "/app/docker-entrypoint.sh"]
+
+  scheduler:
+    build: .
+    env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
+      POSTGRES_HOST: ${POSTGRES_HOST:-host.docker.internal}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-openjarvis}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      AI_API_KEY: ${AI_API_KEY}
+      AI_MODEL: ${AI_MODEL:-deepseek/deepseek-chat}
+      AI_API_BASE: ${AI_API_BASE:-https://api.deepseek.com}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    entrypoint: ["/bin/sh", "/app/docker-entrypoint-scheduler.sh"]
+    depends_on:
+      - backend
+    restart: unless-stopped
 
   frontend:
     build:

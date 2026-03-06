@@ -18,7 +18,7 @@ import requests
 
 from .parser import RSSParser, ParsedRSSItem
 from app.core import http_client as hc
-from app.utils.time_utils import get_configured_time, is_within_days, DEFAULT_TIMEZONE
+from app.utils.time_utils import get_configured_time, is_within_days, get_default_timezone
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ class RSSFetcher:
         proxy_https_url: str = "",
         no_proxy: str = "",
         retries: int = 1,
-        timezone: str = DEFAULT_TIMEZONE,
+        timezone: Optional[str] = None,
         freshness_enabled: bool = True,
         default_max_age_days: int = 3,
         max_concurrent: int = 5,
@@ -96,6 +96,7 @@ class RSSFetcher:
             max_concurrent: 最大并发抓取数
         """
         self.feeds = [f for f in feeds if f.enabled]
+        self.timezone = timezone if timezone is not None else get_default_timezone()
         self.request_interval = request_interval
         self.timeout = timeout
         self.connect_timeout = connect_timeout
@@ -104,7 +105,6 @@ class RSSFetcher:
         self.proxy_https_url = proxy_https_url
         self.no_proxy = no_proxy
         self.retries = retries
-        self.timezone = timezone
         self.freshness_enabled = freshness_enabled
         self.default_max_age_days = default_max_age_days
         self.max_concurrent = max(1, max_concurrent)

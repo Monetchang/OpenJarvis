@@ -26,6 +26,9 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
+- 2026-03-06 Scheduler: Cron uses `TIMEZONE` from .env (fixes Docker UTC mismatch); scheduler runs in separate container (backend + scheduler + frontend); digest checks DB first—uses cache if today's articles and topics exist, otherwise fetches and generates.
+- 2026-03-06 RSS: FeedParser UA to avoid 403 (MarkTechPost, AI News); updated Google AI Blog URL, Sebastian Raschka rss_feed.xml; disabled Papers with Code (Cloudflare); `scripts/diagnose_feeds.py` for feed diagnostics.
+- 2026-03-06 Timezone: All "today" logic uses `get_configured_time()` (crawler, API, scheduler) for consistency across Docker/local.
 - 2025-03-05 AI RSS: RSS aggregation, RSSHub, Medium config; startup pre-fetch (15s after boot, disable via `STARTUP_PREFETCH_ENABLED=false`); decouple `/today` from auto-fetch; crawler lock + StaleDataError handling; init_db no longer creates DB; migration 005.
 - 2025-03-05 Docker: backend + frontend only (no postgres); user manages DB separately; removed default RSS feeds and article domains; fixed oc_conversations IntegrityError, api.ts batchCreateFeeds type.
 - 2025-03-04 Unified HTTP client for RSS fetch and fetch_url; proxy support (RSS_USE_PROXY, socks5h); feed create returns 200 when already exists; fixed logging middleware crash.
@@ -82,6 +85,7 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
    ```bash
    docker compose up -d
    ```
+   Services: `backend` (API, 4 workers), `scheduler` (RSS cron + digest), `frontend`.
 
 4. Backend: http://localhost:12135  
    API docs: http://localhost:12135/docs  
@@ -140,6 +144,7 @@ See `.env.example`. Main variables:
 | `RESEND_FROM` | Sender, e.g. `OpenJarvis <onboarding@resend.dev>` (quote the value) |
 | `INVITE_CODES` | Invite codes for email binding |
 | `STARTUP_PREFETCH_ENABLED` | Startup pre-fetch (set `false` when app restarts frequently in test) |
+| `TIMEZONE` | Timezone for cron and "today" logic (default `Asia/Shanghai`) |
 
 ## License
 

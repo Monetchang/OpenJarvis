@@ -13,8 +13,6 @@ from app.models.config import AppConfig
 from app.models.feed import RSSFeed
 from app.schemas.config import ConfigResponse, ConfigUpdateRequest
 from app.schemas.common import ResponseModel
-from app.services import scheduler_service
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -86,7 +84,6 @@ def update_global_config(config_data: ConfigUpdateRequest, db: Session = Depends
             db.query(RSSFeed).filter(RSSFeed.is_active == 1).update({
                 RSSFeed.schedule: config_data.rssSchedule
             })
-            scheduler_service.reschedule(config_data.rssSchedule)
             logger.info(f"更新 RSS 定时配置: {config_data.rssSchedule}")
         
         # 更新翻译开关

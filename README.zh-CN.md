@@ -26,6 +26,9 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
 
 ## 🔥 最新更新
 
+- 2026-03-06 定时任务：Cron 使用 `.env` 中的 `TIMEZONE`（修复 Docker UTC 时区问题）；scheduler 独立容器运行（backend + scheduler + frontend）；推送前先查库，有今日文章和选题则直接用，否则抓取并生成。
+- 2026-03-06 RSS：改用 FeedParser UA 规避 403（MarkTechPost、AI News）；更新 Google AI Blog、Sebastian Raschka 地址；禁用 Papers with Code（Cloudflare）；新增 `scripts/diagnose_feeds.py` 诊断脚本。
+- 2026-03-06 时区：crawler、API、scheduler 的「今日」逻辑统一使用 `get_configured_time()`。
 - 2025-03-05 AI RSS：RSS 聚合、RSSHub、Medium 配置；启动预抓取（启动 15 秒后执行，测试环境可设 `STARTUP_PREFETCH_ENABLED=false` 关闭）；解耦 `/today` 与自动抓取；crawler 进程锁与 StaleDataError 处理；init_db 不再自动建库；迁移 005。
 - 2025-03-05 Docker：仅 backend + frontend，不含 postgres，数据库由用户自行管理；移除默认 RSS 源与关键领域数据；修复 oc_conversations IntegrityError、api.ts batchCreateFeeds 类型错误。
 - 2025-03-04 统一 HTTP 客户端（`app/core/http_client.py`）：RSS 抓取与 fetch_url 共用，支持代理（RSS_USE_PROXY、RSS_PROXY_URL、socks5h）、超时、浏览器 UA；添加 RSS 源时「已存在」返回 200 而非 400；修复 logging_middleware 读取 body 导致 BaseHTTPMiddleware 崩溃。
@@ -82,6 +85,7 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
    ```bash
    docker compose up -d
    ```
+   服务：`backend`（API，4 workers）、`scheduler`（RSS 定时抓取与推送）、`frontend`。
 
 4. 后端：http://localhost:12135  
    API 文档：http://localhost:12135/docs  
@@ -140,6 +144,7 @@ cd web && npm install && npm run dev   # 前端 http://localhost:5173
 | `RESEND_FROM` | 发件人，如 `OpenJarvis <onboarding@resend.dev>`（测试可用该地址） |
 | `INVITE_CODES` | 邀请码，逗号分隔，邮箱绑定时校验 |
 | `STARTUP_PREFETCH_ENABLED` | 启动预抓取，测试环境频繁重启时设为 `false` |
+| `TIMEZONE` | 定时任务与「今日」逻辑的时区（默认 `Asia/Shanghai`） |
 
 ## License
 

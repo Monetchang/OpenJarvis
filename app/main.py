@@ -3,7 +3,6 @@
 主应用入口
 """
 import asyncio
-import json
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
@@ -18,10 +17,7 @@ from app.core.exception_handler import (
     general_exception_handler
 )
 from app.core.database import get_db_context, engine
-from app.core.config import settings
-from app.models.config import AppConfig
 from app.models.subscriber import EmailSubscriber
-from app.services import scheduler_service
 from app.orchestration import create_tables
 from app.orchestration.graphs.definitions import build_blog_graph
 from app.orchestration.ws import EventBroadcaster
@@ -44,18 +40,7 @@ async def lifespan(app: FastAPI):
     EmailSubscriber.__table__.create(engine, checkfirst=True)
     create_tables(engine)
     build_blog_graph()
-    with get_db_context() as db:
-        cfg = db.query(AppConfig).filter(AppConfig.key == "rss_schedule").first()
-        if cfg and cfg.value:
-            try:
-                cron = json.loads(cfg.value)
-            except (json.JSONDecodeError, TypeError):
-                cron = cfg.value
-        else:
-            cron = settings.RSS_SCHEDULE
-    scheduler_service.init_scheduler(cron)
     yield
-    scheduler_service.shutdown()
 
 
 app = FastAPI(

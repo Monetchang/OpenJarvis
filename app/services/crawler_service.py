@@ -14,6 +14,7 @@ from sqlalchemy.orm.exc import StaleDataError
 from types import SimpleNamespace
 
 from app.core.config import settings
+from app.utils.time_utils import get_configured_time
 
 logger = logging.getLogger(__name__)
 from app.core.crawler import RSSFetcher, RSSFeedConfig
@@ -84,7 +85,7 @@ class CrawlerService:
 
         # Step2: 清空当日（synchronize_session=False 避免与后续修改的 existing 对象冲突）
         t_step = time.time()
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = get_configured_time().strftime("%Y-%m-%d")
         deleted = db.query(RSSItemDB).filter(RSSItemDB.first_crawl_time == today).delete(
             synchronize_session=False
         )

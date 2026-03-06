@@ -13,11 +13,17 @@ import pytz
 
 logger = logging.getLogger(__name__)
 
-# 默认时区常量
-DEFAULT_TIMEZONE = "Asia/Shanghai"
+
+def get_default_timezone() -> str:
+    """从配置读取时区，未配置则用 Asia/Shanghai"""
+    try:
+        from app.core.config import settings
+        return getattr(settings, "TIMEZONE", "Asia/Shanghai")
+    except Exception:
+        return "Asia/Shanghai"
 
 
-def get_configured_time(timezone: str = DEFAULT_TIMEZONE) -> datetime:
+def get_configured_time(timezone: Optional[str] = None) -> datetime:
     """
     获取配置时区的当前时间
 
@@ -27,18 +33,21 @@ def get_configured_time(timezone: str = DEFAULT_TIMEZONE) -> datetime:
     Returns:
         带时区信息的当前时间
     """
+    if timezone is None:
+        timezone = get_default_timezone()
     try:
         tz = pytz.timezone(timezone)
     except pytz.UnknownTimeZoneError:
-        logger.warning("未知时区 '%s'，使用默认时区 %s", timezone, DEFAULT_TIMEZONE)
-        tz = pytz.timezone(DEFAULT_TIMEZONE)
+        fallback = get_default_timezone()
+        logger.warning("未知时区 '%s'，使用默认时区 %s", timezone, fallback)
+        tz = pytz.timezone(fallback)
     return datetime.now(tz)
 
 
 def is_within_days(
     iso_time: str,
     max_days: int,
-    timezone: str = DEFAULT_TIMEZONE,
+    timezone: Optional[str] = None,
 ) -> bool:
     """
     检查 ISO 格式时间是否在指定天数内
@@ -56,6 +65,8 @@ def is_within_days(
         True 如果时间在指定天数内（应保留），False 如果超过指定天数（应过滤）
         如果无法解析时间，返回 True（保留文章）
     """
+    if timezone is None:
+        timezone = get_default_timezone()
     # 无时间戳或禁用过滤时，保留文章
     if not iso_time:
         return True
@@ -139,7 +150,7 @@ def parse_published_date(published_at: str) -> Optional[datetime]:
         return None
 
 
-def is_today(published_at: str, timezone: str = DEFAULT_TIMEZONE) -> bool:
+def is_today(published_at: str, timezone: Optional[str] = None) -> bool:
     """
     判断 published_at 是否为今天
     
@@ -150,6 +161,8 @@ def is_today(published_at: str, timezone: str = DEFAULT_TIMEZONE) -> bool:
     Returns:
         True 如果是今天，False 如果不是或无法解析
     """
+    if timezone is None:
+        timezone = get_default_timezone()
     dt = parse_published_date(published_at)
     if dt is None:
         return False

@@ -156,9 +156,9 @@ def fetch_one(
 
     now = datetime.now(timezone.utc)
     if source.cooldown_until and source.cooldown_until.tzinfo is None:
-        from app.utils.time_utils import DEFAULT_TIMEZONE
+        from app.utils.time_utils import get_default_timezone
         import zoneinfo
-        tz = zoneinfo.ZoneInfo(DEFAULT_TIMEZONE)
+        tz = zoneinfo.ZoneInfo(get_default_timezone())
         cooldown_aware = source.cooldown_until.replace(tzinfo=tz)
     else:
         cooldown_aware = source.cooldown_until

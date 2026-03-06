@@ -18,7 +18,7 @@ from app.models.filter import ArticleDomain, ArticleKeyword
 from app.schemas.article import ArticleResponse
 from app.schemas.common import ResponseModel
 from app.services.filter_service import FilterService
-from app.utils.time_utils import is_within_days, DEFAULT_TIMEZONE
+from app.utils.time_utils import is_within_days, get_configured_time
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -58,7 +58,7 @@ def get_today_articles(
     db: Session = Depends(get_db)
 ):
     """获取当日入库文章，不做过滤（过滤已在 fetch 阶段完成）"""
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = get_configured_time().strftime("%Y-%m-%d")
     feed_names = _get_feed_name_cache(db)
 
     articles = db.query(RSSItem).filter(
@@ -96,7 +96,7 @@ def get_today_articles(
 def debug_today_articles(db: Session = Depends(get_db)):
     """诊断接口：分析 /today 为什么没有返回文章"""
     today = date.today()
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = get_configured_time().strftime("%Y-%m-%d")
     feed_names = _get_feed_name_cache(db)
 
     report = {
@@ -193,7 +193,7 @@ def get_history_articles(
     db: Session = Depends(get_db)
 ):
     """获取历史推送（默认只返回已通过过滤的文章）"""
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = get_configured_time().strftime("%Y-%m-%d")
     feed_names = _get_feed_name_cache(db)
 
     query = db.query(RSSItem).join(
