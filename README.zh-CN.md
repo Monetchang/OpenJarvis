@@ -26,6 +26,8 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
 
 ## 🔥 最新更新
 
+- 2026-03-06 文章解读：新增 `POST /article/interpret/{articleId}`，调用 LLM 返回结构化解读（摘要、要点、行业影响、标签）；结果缓存至 DB（`interpret_result`）；支持 `?force=1` 强制重新解读；网站屏蔽抓取时返回友好提示。
+- 2026-03-06 历史存档：分页支持；查看历史 tab 时隐藏 IdeaGenerator；双语标题以 `中文（English）` 格式展示。
 - 2026-03-06 定时任务：Cron 使用 `.env` 中的 `TIMEZONE`（修复 Docker UTC 时区问题）；scheduler 独立容器运行（backend + scheduler + frontend）；推送前先查库，有今日文章和选题则直接用，否则抓取并生成。
 - 2026-03-06 RSS：改用 FeedParser UA 规避 403（MarkTechPost、AI News）；更新 Google AI Blog、Sebastian Raschka 地址；禁用 Papers with Code（Cloudflare）；新增 `scripts/diagnose_feeds.py` 诊断脚本。
 - 2026-03-06 时区：crawler、API、scheduler 的「今日」逻辑统一使用 `get_configured_time()`。

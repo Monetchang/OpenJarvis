@@ -26,6 +26,8 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
+- 2026-03-06 Article Interpret: `POST /article/interpret/{articleId}` calls LLM to return structured interpretation (summary, key points, industry impact, tags); result cached in DB (`interpret_result`); supports `?force=1` to re-interpret; friendly error when site blocks crawling.
+- 2026-03-06 History: pagination support for history archive; IdeaGenerator hidden when viewing history tab; bilingual title display as `中文（English）` when both exist.
 - 2026-03-06 Scheduler: Cron uses `TIMEZONE` from .env (fixes Docker UTC mismatch); scheduler runs in separate container (backend + scheduler + frontend); digest checks DB first—uses cache if today's articles and topics exist, otherwise fetches and generates.
 - 2026-03-06 RSS: FeedParser UA to avoid 403 (MarkTechPost, AI News); updated Google AI Blog URL, Sebastian Raschka rss_feed.xml; disabled Papers with Code (Cloudflare); `scripts/diagnose_feeds.py` for feed diagnostics.
 - 2026-03-06 Timezone: All "today" logic uses `get_configured_time()` (crawler, API, scheduler) for consistency across Docker/local.

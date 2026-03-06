@@ -34,11 +34,12 @@ def _get_feed_name_cache(db: Session) -> dict:
 
 
 def _build_article_response(article: RSSItem, feed_name: str, today_str: str) -> dict:
-    """构建单篇文章的响应体"""
+    """构建单篇文章的响应体（title=原文，titleZh=翻译中文）"""
     is_new = (article.first_crawl_time == today_str) if article.first_crawl_time else False
     return {
         "id": article.id,
         "title": article.title,
+        "titleZh": getattr(article, "title_zh", None),
         "source": feed_name,
         "feedName": feed_name,
         "summary": article.summary or "",
@@ -189,7 +190,7 @@ def get_history_articles(
     exclude_keywords: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     pageSize: int = Query(20, ge=1, le=100),
-    apply_filter: bool = Query(True, description="是否应用默认过滤规则（只返回已过滤的文章）"),
+    apply_filter: bool = Query(False, description="为 True 时只返回 domain_id 非空的文章（需抓取时写入 domain_id）"),
     db: Session = Depends(get_db)
 ):
     """获取历史推送（默认只返回已通过过滤的文章）"""
@@ -237,6 +238,55 @@ def get_history_articles(
             "pageSize": pageSize
         }
     }
+
+
+@router.post("/interpret/{articleId}")
+def interpret_article(
+    articleId: int,
+    force: bool = Query(False, description="强制重新解读，忽略缓存"),
+    db: Session = Depends(get_db),
+):
+    """抓取文章正文并调用 LLM 解读，返回结构化解读结果。有缓存则直接返回，force=1 时强制重新解读。"""
+    article = db.query(RSSItem).filter(RSSItem.id == articleId).first()
+    if not article:
+        raise HTTPException(status_code=404, detail="文章不存在")
+
+    title = (article.title_zh or article.title or "").strip() or article.url
+
+    if not force and article.interpret_result:
+        cached = article.interpret_result
+        if isinstance(cached, dict) and cached.get("summary") is not None:
+            return {
+                "code": 0,
+                "message": "success",
+                "data": {"title": cached.get("title", title), **cached},
+            }
+
+    from app.core.fetch_webpage import fetch_url
+    from app.services.ai_service import get_ai_service
+
+    fetched = fetch_url(article.url, max_summary_chars=3000)
+    content = fetched.get("summary") or ""
+    if not content.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="该网站不支持内容抓取（如 Medium、部分博客），请直接点击链接阅读原文",
+        )
+
+    if not title or title == article.url:
+        title = (fetched.get("title") or "").strip() or title
+
+    feed = db.query(RSSFeed).filter(RSSFeed.id == article.feed_id).first()
+    source = feed.name if feed else ""
+
+    service = get_ai_service()
+    result = service.interpret_article(title, content, source)
+
+    data = {"title": title, **result}
+    article.interpret_result = data
+    db.commit()
+
+    return {"code": 0, "message": "success", "data": data}
 
 
 @router.post("/mark-read/{articleId}")
