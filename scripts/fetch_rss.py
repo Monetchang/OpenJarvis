@@ -102,14 +102,13 @@ def fetch_all_feeds():
                     if result.translated_text:
                         translated_titles[titles_to_translate[i]] = result.translated_text
             
-            # 保存新文章
+            # 保存新文章（title=原文，title_zh=翻译）
             for item in items_to_save:
-                # 使用翻译后的标题（如果有）
-                title = translated_titles.get(item.title, item.title)
-                
+                title_zh = translated_titles.get(item.title) if translated_titles else None
                 db_item = RSSItem(
                     feed_id=feed_id,
-                    title=title,
+                    title=item.title or "",
+                    title_zh=title_zh,
                     url=item.url,
                     summary=item.summary or "",
                     author=item.author or "",

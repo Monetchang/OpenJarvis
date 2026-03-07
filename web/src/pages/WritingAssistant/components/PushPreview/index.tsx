@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Card, Tabs, List, Tag, Badge, Collapse, Empty, Spin, message, Button } from 'antd'
-import { ClockCircleOutlined, CheckCircleOutlined, EyeOutlined, SyncOutlined } from '@ant-design/icons'
+import { Card, Tabs, List, Tag, Badge, Collapse, Empty, Spin, message, Button, Modal, Pagination } from 'antd'
+import { ClockCircleOutlined, CheckCircleOutlined, EyeOutlined, SyncOutlined, BulbOutlined } from '@ant-design/icons'
 import { api } from '@/services/api'
 import { Article } from '@/types'
 import { useArticleStore } from '@/stores/articleStore'
@@ -15,18 +15,37 @@ function formatDate(value: string | number | null | undefined, format = 'YYYY-MM
   return d.isValid() ? d.format(format) : '-'
 }
 
-export default function PushPreview() {
+interface PushPreviewProps {
+  onActiveTabChange?: (tab: string) => void
+}
+
+export default function PushPreview({ onActiveTabChange }: PushPreviewProps) {
   const [activeTab, setActiveTab] = useState('today')
   const [todayArticles, setTodayArticles] = useState<Article[]>([])
   const [historyArticles, setHistoryArticles] = useState<Article[]>([])
+  const [historyPage, setHistoryPage] = useState(1)
+  const [historyPageSize] = useState(20)
+  const [historyTotal, setHistoryTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [fetchLoading, setFetchLoading] = useState(false)
+  const [interpretLoading, setInterpretLoading] = useState<number | null>(null)
+  const [interpretModal, setInterpretModal] = useState<{
+    article: Article | null
+    title: string
+    summary: string
+    key_points: string[]
+    technical_points: string[]
+    important_facts: string[]
+    industry_impact: string
+    tags: string[]
+  } | null>(null)
   const todayRefreshTrigger = useArticleStore((s) => s.todayRefreshTrigger)
   const triggerTodayRefresh = useArticleStore((s) => s.triggerTodayRefresh)
   const { feeds, setFeeds } = useFeedStore()
 
   useEffect(() => {
     loadTodayArticles()
+    onActiveTabChange?.('today')
   }, [])
 
   useEffect(() => {
@@ -56,11 +75,13 @@ export default function PushPreview() {
     }
   }
 
-  const loadHistoryArticles = async () => {
+  const loadHistoryArticles = async (page = 1) => {
     setLoading(true)
     try {
-      const data = await api.getHistoryArticles()
+      const data = await api.getHistoryArticles({ page, pageSize: historyPageSize })
       setHistoryArticles(data.articles)
+      setHistoryTotal(data.total)
+      setHistoryPage(page)
     } catch (error) {
       message.error('加载历史数据失败')
     } finally {
@@ -70,8 +91,9 @@ export default function PushPreview() {
 
   const handleTabChange = (key: string) => {
     setActiveTab(key)
-    if (key === 'history' && historyArticles.length === 0) {
-      loadHistoryArticles()
+    onActiveTabChange?.(key)
+    if (key === 'history') {
+      loadHistoryArticles(1)
     }
   }
 
@@ -89,6 +111,22 @@ export default function PushPreview() {
       message.error('抓取失败')
     } finally {
       setFetchLoading(false)
+    }
+  }
+
+  const handleInterpret = async (article: Article, force = false) => {
+    setInterpretLoading(article.id)
+    try {
+      const result = await api.interpretArticle(article.id, force)
+      setInterpretModal({
+        article,
+        ...result,
+        title: result.title || (article.titleZh ?? article.title),
+      })
+    } catch {
+      message.error('解读失败')
+    } finally {
+      setInterpretLoading(null)
     }
   }
 
@@ -117,8 +155,17 @@ export default function PushPreview() {
         renderItem={(article) => (
           <List.Item
             className={article.isRead ? 'opacity-60' : ''}
-            actions={
-              showMarkRead && !article.isRead
+            actions={[
+              <Button
+                type="link"
+                icon={<BulbOutlined />}
+                onClick={() => handleInterpret(article)}
+                loading={interpretLoading === article.id}
+                key="interpret"
+              >
+                解读
+              </Button>,
+              ...(showMarkRead && !article.isRead
                 ? [
                     <Button
                       type="link"
@@ -129,8 +176,8 @@ export default function PushPreview() {
                       标记已读
                     </Button>,
                   ]
-                : []
-            }
+                : []),
+            ]}
           >
             <List.Item.Meta
               title={
@@ -141,7 +188,9 @@ export default function PushPreview() {
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 hover:underline"
                   >
-                    {article.title}
+                    {article.titleZh && article.title && article.titleZh !== article.title
+                      ? `${article.titleZh}（${article.title}）`
+                      : (article.titleZh ?? article.title)}
                   </a>
                   {article.isRead && (
                     <Tag icon={<CheckCircleOutlined />} color="success">
@@ -218,6 +267,17 @@ export default function PushPreview() {
       children: (
         <Spin spinning={loading}>
           {renderArticleList(historyArticles)}
+          {historyTotal > 0 && (
+            <div className="flex justify-center mt-4">
+              <Pagination
+                current={historyPage}
+                pageSize={historyPageSize}
+                total={historyTotal}
+                showSizeChanger={false}
+                onChange={loadHistoryArticles}
+              />
+            </div>
+          )}
         </Spin>
       ),
     },
@@ -238,6 +298,71 @@ export default function PushPreview() {
       }
     >
       <Tabs items={items} activeKey={activeTab} onChange={handleTabChange} />
+      <Modal
+        title={interpretModal?.title}
+        open={!!interpretModal}
+        onCancel={() => setInterpretModal(null)}
+        footer={
+          interpretModal?.article ? (
+            <Button
+              type="link"
+              onClick={() => handleInterpret(interpretModal.article!, true)}
+              loading={interpretLoading === interpretModal.article?.id}
+            >
+              重新解读
+            </Button>
+          ) : null
+        }
+        width={600}
+      >
+        {interpretModal && (
+          <div className="space-y-4 text-sm text-gray-700">
+            {interpretModal.summary && (
+              <div>
+                <div className="font-semibold mb-1">摘要</div>
+                <p>{interpretModal.summary}</p>
+              </div>
+            )}
+            {interpretModal.key_points.length > 0 && (
+              <div>
+                <div className="font-semibold mb-1">核心观点</div>
+                <ul className="list-disc pl-4 space-y-1">
+                  {interpretModal.key_points.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            )}
+            {interpretModal.technical_points.length > 0 && (
+              <div>
+                <div className="font-semibold mb-1">关键技术点</div>
+                <ul className="list-disc pl-4 space-y-1">
+                  {interpretModal.technical_points.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            )}
+            {interpretModal.important_facts.length > 0 && (
+              <div>
+                <div className="font-semibold mb-1">重要事实</div>
+                <ul className="list-disc pl-4 space-y-1">
+                  {interpretModal.important_facts.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            )}
+            {interpretModal.industry_impact && (
+              <div>
+                <div className="font-semibold mb-1">行业意义</div>
+                <p>{interpretModal.industry_impact}</p>
+              </div>
+            )}
+            {interpretModal.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {interpretModal.tags.map((t) => (
+                  <Tag key={t} color="blue">{t}</Tag>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </Card>
   )
 }

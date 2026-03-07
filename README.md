@@ -26,9 +26,11 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
+- 2026-03-07 Scheduler fix: `BackgroundScheduler` now initialized with `TIMEZONE` so cron fires at the correct local time regardless of container timezone (was UTC by default).
+- 2026-03-07 title_zh split: original English title preserved in `title`; Chinese translation stored separately in `title_zh`; keyword filtering matches both; backfill skips already-translated items; summary translation removed.
 - 2026-03-06 Feishu push: Digest push to Feishu (like email)—supports custom bot webhook and Flow webhook; `FEISHU_WEBHOOK_URL` in .env (semicolon-separated); `POST /subscribe/feishu` API; bilingual titles `中文 (English)`; rich formatting (sections, related articles); `scripts/test_feishu_push.py` and `scripts/test_email_push.py`.
 - 2026-03-06 Email: HTML digest with gradient header, section blocks, topic cards; `title_zh` for bilingual display.
-- 2026-03-06 Article Interpret: `POST /article/interpret/{articleId}`; structured interpretation cached in DB; `?force=1`; friendly error when site blocks crawling.
+- 2026-03-06 Article Interpret: `POST /article/interpret/{articleId}`; structured interpretation cached in DB (`interpret_result`); `?force=1`; friendly error when site blocks crawling.
 - 2026-03-06 History: pagination; IdeaGenerator hidden on history tab; bilingual title display.
 - 2026-03-06 Scheduler: Cron uses `TIMEZONE`; scheduler in separate container; digest checks DB first.
 - 2026-03-06 RSS: FeedParser UA; updated feed URLs; `scripts/diagnose_feeds.py`.

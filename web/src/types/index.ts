@@ -15,6 +15,7 @@ export interface RssFeed {
 export interface Article {
   id: number
   title: string
+  titleZh?: string | null
   source: string
   feedName: string
   summary: string
@@ -30,6 +31,7 @@ export interface Idea {
   title: string
   relatedArticles: {
     title: string
+    titleZh?: string | null
     source: string
     url: string
   }[]

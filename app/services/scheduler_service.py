@@ -23,7 +23,7 @@ from app.services.email_service import send_digest
 from app.services.feishu import feishu_service
 
 logger = logging.getLogger(__name__)
-_scheduler = BackgroundScheduler()
+_scheduler = BackgroundScheduler(timezone=settings.TIMEZONE)
 JOB_ID = "rss_fetch"
 
 

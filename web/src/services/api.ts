@@ -126,6 +126,30 @@ export const api = {
     return response.data
   },
 
+  async interpretArticle(id: number, force = false): Promise<{
+    title: string
+    summary: string
+    key_points: string[]
+    technical_points: string[]
+    important_facts: string[]
+    industry_impact: string
+    tags: string[]
+  }> {
+    const response = await request.post(`/article/interpret/${id}?force=${force}`, undefined, {
+      timeout: 60000,
+    }) as { data?: Record<string, unknown> }
+    const d = response.data ?? {}
+    return {
+      title: (d.title as string) || '',
+      summary: (d.summary as string) || '',
+      key_points: (d.key_points as string[]) || [],
+      technical_points: (d.technical_points as string[]) || [],
+      important_facts: (d.important_facts as string[]) || [],
+      industry_impact: (d.industry_impact as string) || '',
+      tags: (d.tags as string[]) || [],
+    }
+  },
+
   // 灵感选题
   async getIdeas(): Promise<Idea[]> {
     const response = await request.get<{ data?: { ideas?: Idea[] }; ideas?: Idea[] }>('/ai/ideas')

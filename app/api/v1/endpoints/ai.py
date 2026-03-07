@@ -19,6 +19,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _ref_with_title_zh(db: Session, ref: TopicReference) -> dict:
+    """为参考文章附加 titleZh（按 url 查 RSSItem）。"""
+    item = db.query(RSSItem).filter(RSSItem.url == ref.article_url).first()
+    return {
+        "title": ref.article_title,
+        "titleZh": getattr(item, "title_zh", None) if item else None,
+        "source": ref.source or "",
+        "url": ref.article_url,
+    }
+
+
 @router.get("/ideas")
 def get_today_ideas(db: Session = Depends(get_db)):
     """从存储中获取当日选题数据。"""
@@ -30,7 +41,7 @@ def get_today_ideas(db: Session = Depends(get_db)):
         ideas.append({
             "id": f"idea_{t.id}",
             "title": t.title,
-            "relatedArticles": [{"title": r.article_title, "source": r.source or "", "url": r.article_url} for r in refs],
+            "relatedArticles": [_ref_with_title_zh(db, r) for r in refs],
             "reason": t.description
         })
     return {"code": 0, "message": "success", "data": {"ideas": ideas}}
@@ -128,7 +139,14 @@ def generate_ideas(
                         source=r.get("source", "参考文章")
                     )
                     db.add(ref)
-                    related_articles.append({"title": ref.article_title, "source": ref.source, "url": ref.article_url})
+                    item = db.query(RSSItem).filter(RSSItem.url == ref.article_url).first()
+                    title_zh = getattr(item, "title_zh", None) if item else None
+                    related_articles.append({
+                        "title": ref.article_title,
+                        "titleZh": title_zh,
+                        "source": ref.source,
+                        "url": ref.article_url
+                    })
 
             result_ideas.append({
                 "id": f"idea_{db_topic.id}",

@@ -162,6 +162,25 @@ class AIService:
         messages = [{"role": "user", "content": prompt}]
         return self.ai_client.chat(messages)
 
+    def interpret_article(self, title: str, content: str, source: str = "") -> Dict[str, Any]:
+        """解读文章内容，返回结构化 JSON 解读结果。"""
+        import json, re
+        prompt = self._load_prompt("ai_article_interpret_prompt").format(
+            title=title,
+            source=source or "未知来源",
+            content=(content or "")[:3000],
+        )
+        raw = self.ai_client.chat([{"role": "user", "content": prompt}]) or ""
+        # 尝试解析 JSON，失败时降级返回原始文本
+        text = raw.strip()
+        m = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+        if m:
+            text = m.group(1).strip()
+        try:
+            return json.loads(text)
+        except Exception:
+            return {"summary": text, "key_points": [], "technical_points": [], "important_facts": [], "industry_impact": "", "tags": []}
+
     def _load_prompt(self, module_name: str) -> str:
         """从 app.core.prompts 加载 prompt 模块的 TEMPLATE"""
         try:

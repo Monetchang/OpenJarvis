@@ -13,6 +13,7 @@ class RSSItem(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(Text, nullable=False)
+    title_zh = Column(Text)  # 翻译后的中文标题，仅标题翻译时使用
     feed_id = Column(String, ForeignKey("rss_feeds.id"), nullable=False)
     url = Column(Text, nullable=False)
     guid = Column(String(512))
@@ -29,4 +30,5 @@ class RSSItem(Base):
     is_read = Column(Boolean, default=False)  # 标记已读
     domain_id = Column(Integer, ForeignKey("article_domains.id", ondelete="SET NULL"))
     matched_keywords = Column(JSON)  # 匹配的关键词信息
+    interpret_result = Column(JSON)  # AI 解读结果，结构化 JSON
 

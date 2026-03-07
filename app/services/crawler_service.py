@@ -121,8 +121,7 @@ class CrawlerService:
         all_new_items: List[tuple] = []
         items_needing_trans: List[tuple] = []
         backfill_records: List[RSSItemDB] = []
-        title_map: Dict[tuple, str] = {}
-        summary_map: Dict[tuple, str] = {}
+        title_map: Dict[tuple, str] = {}  # (feed_id, url) -> translated title_zh
         trusted_feed_ids: Set[str] = {
             f.id for f in db.query(RSSFeed.id).filter(RSSFeed.is_trusted == 1).all()
         }
@@ -162,7 +161,7 @@ class CrawlerService:
                         RSSItemDB.url == item.url,
                         RSSItemDB.feed_id == feed_id,
                     ).first()
-                    if rec and _needs_translation(rec.title or ""):
+                    if rec and _needs_translation(rec.title or "") and not (rec.title_zh and rec.title_zh.strip()):
                         backfill_records.append(rec)
 
             for item in existing_items:
@@ -179,11 +178,8 @@ class CrawlerService:
                     t_collect, len(items_needing_trans), len(backfill_records))
 
         all_titles: List[str] = []
-        all_summaries: List[str] = []
         all_titles.extend(item.title or "" for _, item in items_needing_trans)
-        all_summaries.extend(item.summary or "" for _, item in items_needing_trans)
         all_titles.extend(r.title or "" for r in backfill_records)
-        all_summaries.extend(r.summary or "" for r in backfill_records)
 
         TRANS_CHUNK = 50
 
@@ -203,50 +199,26 @@ class CrawlerService:
             for i, rec in enumerate(dest_backfill):
                 idx = n_new + i
                 if idx < len(all_results) and all_results[idx].success and all_results[idx].translated_text:
-                    rec.title = all_results[idx].translated_text
+                    rec.title_zh = all_results[idx].translated_text
 
-        def _translate_summaries_and_fill(texts: List[str], dest_new: list, dest_backfill: list) -> None:
-            all_results = []
-            for chunk_start in range(0, len(texts), TRANS_CHUNK):
-                chunk = texts[chunk_start:chunk_start + TRANS_CHUNK]
-                t0 = time.time()
-                bs = ai.translate_batch(chunk)
-                logger.info("[fetch] Step4 翻译批次 summaries %d-%d 耗时=%.2fs",
-                           chunk_start, chunk_start + len(chunk), time.time() - t0)
-                all_results.extend(bs.results)
-            n_new = len(items_needing_trans)
-            for i, (fid, it) in enumerate(dest_new):
-                if i < len(all_results) and all_results[i].success and all_results[i].translated_text:
-                    summary_map[(fid, it.url)] = all_results[i].translated_text
-            for i, rec in enumerate(dest_backfill):
-                idx = n_new + i
-                if idx < len(all_results) and all_results[idx].success and all_results[idx].translated_text:
-                    rec.summary = all_results[idx].translated_text
-
-        if all_titles or all_summaries:
+        if all_titles:
             try:
                 from app.services.ai_service import get_ai_service
                 ai = get_ai_service()
-                if all_titles:
-                    t_trans = time.time()
-                    logger.info("[fetch] Step4 开始批量翻译 titles 共 %d 条 (分%d批)",
-                                len(all_titles), (len(all_titles) + TRANS_CHUNK - 1) // TRANS_CHUNK)
-                    _translate_and_fill(all_titles, items_needing_trans, backfill_records)
-                    logger.info("[fetch] Step4 titles 全部完成 耗时=%.2fs", time.time() - t_trans)
-                if all_summaries:
-                    t_trans = time.time()
-                    logger.info("[fetch] Step4 开始批量翻译 summaries 共 %d 条 (分%d批)",
-                                len(all_summaries), (len(all_summaries) + TRANS_CHUNK - 1) // TRANS_CHUNK)
-                    _translate_summaries_and_fill(all_summaries, items_needing_trans, backfill_records)
-                    logger.info("[fetch] Step4 summaries 全部完成 耗时=%.2fs", time.time() - t_trans)
+                t_trans = time.time()
+                logger.info("[fetch] Step4 开始批量翻译 titles 共 %d 条 (分%d批)",
+                            len(all_titles), (len(all_titles) + TRANS_CHUNK - 1) // TRANS_CHUNK)
+                _translate_and_fill(all_titles, items_needing_trans, backfill_records)
+                logger.info("[fetch] Step4 titles 全部完成 耗时=%.2fs", time.time() - t_trans)
             except Exception as e:
                 logger.warning("抓取时翻译失败: %s", e)
 
         new_items_to_save = []
         for feed_id, item in all_new_items:
-            title = title_map.get((feed_id, item.url)) or item.title
-            summary = summary_map.get((feed_id, item.url)) or item.summary
-            new_items_to_save.append((feed_id, item, title, summary))
+            title_original = item.title or ""
+            title_zh = title_map.get((feed_id, item.url)) or None
+            summary = item.summary or ""
+            new_items_to_save.append((feed_id, item, title_original, title_zh, summary))
 
         logger.info("[fetch] Step4 翻译完成 耗时=%.2fs 待过滤 new_items=%d",
                     time.time() - t_step, len(new_items_to_save))
@@ -260,8 +232,8 @@ class CrawlerService:
         filter_tier = "n/a"
         if new_items_to_save:
             filterables = [
-                _filterable_item(fid, it, tit, summ)
-                for fid, it, tit, summ in new_items_to_save
+                _filterable_item(fid, it, (tit_orig + " " + (tit_zh or "")).strip(), summ)
+                for fid, it, tit_orig, tit_zh, summ in new_items_to_save
             ]
             neg_keywords = db.query(ArticleKeyword).filter(
                 ArticleKeyword.keyword_type == "negative"
@@ -270,7 +242,7 @@ class CrawlerService:
                 filterables, neg_keywords, trusted_feed_ids=trusted_feed_ids, db=db
             )
             passed_urls = {(f._feed_id, f._item.url) for f in filtered_list}
-            passed_items = [(fid, it, tit, summ) for fid, it, tit, summ in new_items_to_save
+            passed_items = [(fid, it, tit_orig, tit_zh, summ) for fid, it, tit_orig, tit_zh, summ in new_items_to_save
                           if (fid, it.url) in passed_urls]
         logger.info("[fetch] Step5 关键词过滤 耗时=%.2fs 通过 %d/%d 条 tier=%s",
                     time.time() - t_step, len(passed_items), len(new_items_to_save), filter_tier)
@@ -278,9 +250,10 @@ class CrawlerService:
         # Step6: 入库
         t_step = time.time()
         total_items = len(passed_items)
-        for feed_id, item, title, summary in passed_items:
+        for feed_id, item, title_original, title_zh, summary in passed_items:
             db_item = RSSItemDB(
-                title=title,
+                title=title_original,
+                title_zh=title_zh,
                 feed_id=feed_id,
                 url=item.url,
                 published_at=item.published_at,

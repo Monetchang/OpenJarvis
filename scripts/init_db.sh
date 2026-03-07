@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS article_domains (
 CREATE TABLE IF NOT EXISTS rss_items (
     id SERIAL PRIMARY KEY,
     title TEXT NOT NULL,
+    title_zh TEXT,
     feed_id VARCHAR NOT NULL REFERENCES rss_feeds(id),
     url TEXT NOT NULL,
     published_at VARCHAR,
@@ -94,7 +95,8 @@ CREATE TABLE IF NOT EXISTS rss_items (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_read BOOLEAN DEFAULT FALSE,
     domain_id INTEGER REFERENCES article_domains(id) ON DELETE SET NULL,
-    matched_keywords JSONB
+    matched_keywords JSONB,
+    interpret_result JSONB
 );
 
 -- article_keywords

@@ -136,7 +136,9 @@ export default function IdeaGenerator() {
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 hover:underline"
                               >
-                                {article.title}
+                                {article.titleZh && article.title && article.titleZh !== article.title
+                                  ? `${article.titleZh}（${article.title}）`
+                                  : (article.titleZh ?? article.title)}
                               </a>{' '}
                               ({article.source})
                             </div>
