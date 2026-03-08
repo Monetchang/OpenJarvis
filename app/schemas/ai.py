@@ -43,6 +43,7 @@ class ArticleGenerateRequest(BaseModel):
     audience: str
     length: str = "medium"
     language: str = "zh-CN"
+    mode: str = "pro"  # pro=LangGraph 计划驱动, quick=单次 prompt
 
 
 class ArticleGenerateResponse(BaseModel):

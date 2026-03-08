@@ -7,6 +7,7 @@ from typing_extensions import TypedDict
 from langgraph.graph import StateGraph, START, END
 
 from app.orchestration.graphs.nodes.blog_nodes import (
+    infer_style_and_audience,
     fetch_and_extract_refs,
     synthesize_refs,
     propose_outline,
@@ -15,6 +16,8 @@ from app.orchestration.graphs.nodes.blog_nodes import (
     load_prior_state,
     write_sections,
     assemble_article,
+    fact_check_and_citation_verify,
+    style_polish,
     quality_gate,
 )
 from app.orchestration.graphs.runtime import register_graph
@@ -24,6 +27,10 @@ class BlogState(TypedDict, total=False):
     title: str
     style: str
     audience: str
+    article_type: str
+    style_profile: str
+    audience_profile: str
+    prompt_pack_id: str
     refs: list
     ref_cards: list
     idea: dict
@@ -39,11 +46,12 @@ class BlogState(TypedDict, total=False):
 def _route_start(state: BlogState) -> str:
     if state.get("scope_key"):
         return "load_prior_state"
-    return "fetch_and_extract_refs"
+    return "infer_style_and_audience"
 
 
 def build_blog_graph() -> None:
     builder = StateGraph(BlogState)
+    builder.add_node("infer_style_and_audience", infer_style_and_audience)
     builder.add_node("fetch_and_extract_refs", fetch_and_extract_refs)
     builder.add_node("synthesize_refs", synthesize_refs)
     builder.add_node("propose_outline", propose_outline)
@@ -52,8 +60,11 @@ def build_blog_graph() -> None:
     builder.add_node("load_prior_state", load_prior_state)
     builder.add_node("write_sections", write_sections)
     builder.add_node("assemble_article", assemble_article)
+    builder.add_node("fact_check_and_citation_verify", fact_check_and_citation_verify)
+    builder.add_node("style_polish", style_polish)
     builder.add_node("quality_gate", quality_gate)
-    builder.add_conditional_edges(START, _route_start, {"fetch_and_extract_refs": "fetch_and_extract_refs", "load_prior_state": "load_prior_state"})
+    builder.add_conditional_edges(START, _route_start, {"infer_style_and_audience": "infer_style_and_audience", "load_prior_state": "load_prior_state"})
+    builder.add_edge("infer_style_and_audience", "fetch_and_extract_refs")
     builder.add_edge("fetch_and_extract_refs", "synthesize_refs")
     builder.add_edge("synthesize_refs", "propose_outline")
     builder.add_edge("propose_outline", "interrupt_for_outline_confirm")
@@ -61,7 +72,9 @@ def build_blog_graph() -> None:
     builder.add_edge("plan_article", "write_sections")
     builder.add_edge("load_prior_state", "write_sections")
     builder.add_edge("write_sections", "assemble_article")
-    builder.add_edge("assemble_article", "quality_gate")
+    builder.add_edge("assemble_article", "fact_check_and_citation_verify")
+    builder.add_edge("fact_check_and_citation_verify", "style_polish")
+    builder.add_edge("style_polish", "quality_gate")
     builder.add_edge("quality_gate", END)
     graph = builder.compile()
     register_graph("blog_graph", graph)

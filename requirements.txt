@@ -19,6 +19,9 @@ openai>=1.86.0
 # RSS 解析
 feedparser>=6.0
 
+# 网页正文抽取
+trafilatura>=1.6
+
 # 调度器（可选，如需定时任务）
 apscheduler>=3.10
 

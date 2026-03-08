@@ -9,6 +9,7 @@ AI 博客选题生成器模块
 import importlib
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -271,7 +272,7 @@ class BlogTopicsGenerator:
                 if topic.title and topic.description:
                     topics.append(topic)
 
-            return topics
+            return self._dedup_topics(topics)
 
         except json.JSONDecodeError as e:
             logger.error("解析 AI 响应 JSON 失败: %s, 响应: %s", e, response[:500])
@@ -279,6 +280,35 @@ class BlogTopicsGenerator:
         except Exception as e:
             logger.error("解析 AI 响应失败: %s", e)
             return []
+
+    def _normalize_title(self, title: str) -> str:
+        """标题归一化：小写、去标点、合并空白"""
+        s = (title or "").lower()
+        s = re.sub(r"[^\w\s\u4e00-\u9fff]", "", s)
+        s = re.sub(r"\s+", " ", s).strip()
+        return s
+
+    def _overlap_ratio(self, a: str, b: str) -> float:
+        """简单字符集合重叠率，用于相似度去重"""
+        sa, sb = set(self._normalize_title(a)), set(self._normalize_title(b))
+        if not sa or not sb:
+            return 0.0
+        return len(sa & sb) / len(sa | sb)
+
+    def _dedup_topics(self, topics: List[BlogTopic], existing_titles: Optional[List[str]] = None) -> List[BlogTopic]:
+        """选题后处理：标题归一化去重、与已有选题相似度过滤"""
+        seen_normalized = set()
+        existing = set(self._normalize_title(t) for t in (existing_titles or []))
+        out = []
+        for t in topics:
+            norm = self._normalize_title(t.title)
+            if norm in seen_normalized or norm in existing:
+                continue
+            if any(self._overlap_ratio(t.title, o.title) > 0.85 for o in out):
+                continue
+            seen_normalized.add(norm)
+            out.append(t)
+        return out
 
     def generate(self, platforms_news: List[Dict] = None, rss_items: Dict = None, standalone_data: Dict = None) -> BlogTopicsResult:
         """
@@ -329,7 +359,7 @@ class BlogTopicsGenerator:
             messages = [
                 {"role": "user", "content": prompt}
             ]
-            response = self.ai_client.chat(messages)
+            response = self.ai_client.chat(messages, temperature=0.2)
 
             if not response:
                 result.error = "AI 未返回响应"

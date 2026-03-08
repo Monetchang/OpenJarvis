@@ -14,6 +14,10 @@ from app.models.ai import BlogTopic, TopicReference
 from app.services.ai_service import get_ai_service
 from app.schemas.ai import IdeaGenerateRequest, IdeaResponse, ArticleGenerateRequest, ArticleGenerateResponse, RelatedArticle
 from app.schemas.common import ResponseModel
+from app.orchestration.repository import WorkflowRepository, StageRunRepository, ArtifactRepository
+from app.orchestration.events import EV_WORKFLOW_CREATED, EV_STAGE_SCHEDULED
+from app.orchestration.fsm import get_initial_stage, GRAPH_RUN
+from app.orchestration.dispatcher.runner import run_stage
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -176,21 +180,18 @@ def generate_article(
     request: ArticleGenerateRequest,
     db: Session = Depends(get_db)
 ):
-    """生成文章"""
+    """生成文章。mode=pro 走 LangGraph 计划驱动路径，mode=quick 走单次 prompt。"""
     try:
         logger.info(
-            f"生成文章请求",
+            "生成文章请求",
             extra={
                 "ideaId": request.ideaId,
                 "ideaTitle": request.ideaTitle,
                 "style": request.style,
                 "audience": request.audience,
-                "length": request.length,
-                "language": request.language,
+                "mode": request.mode,
             }
         )
-        
-        # 根据 ideaId 获取选题的参考文章
         related_articles = []
         if request.ideaId and request.ideaId.startswith("idea_"):
             try:
@@ -199,6 +200,53 @@ def generate_article(
                 related_articles = [{"title": r.article_title, "url": r.article_url, "source": r.source or ""} for r in refs]
             except (ValueError, Exception):
                 pass
+        refs_urls = [r.get("url", "") for r in related_articles if r.get("url")]
+
+        if request.mode == "pro" and refs_urls:
+            from app.orchestration.events import write_event
+            w_repo = WorkflowRepository(db)
+            sr_repo = StageRunRepository(db)
+            a_repo = ArtifactRepository(db)
+            initial = get_initial_stage()
+            w = w_repo.create(
+                conversation_id=None,
+                input_params={
+                    "title": request.ideaTitle,
+                    "refs": refs_urls,
+                    "style": request.style,
+                    "audience": request.audience,
+                    "outline_confirmed": True,
+                },
+                initial_stage=initial,
+            )
+            sr = sr_repo.create(workflow_id=w.id, stage=initial, attempt=1)
+            write_event(db, w.id, EV_WORKFLOW_CREATED, {"workflow_id": str(w.id)}, w.conversation_id)
+            write_event(db, w.id, EV_STAGE_SCHEDULED, {"stage_run_id": str(sr.id), "stage": initial}, w.conversation_id)
+            db.commit()
+            run_stage(db, sr.id)
+            db.commit()
+            w2 = w_repo.get(w.id)
+            if w2 and w2.status == "COMPLETED":
+                arts = a_repo.list_by_workflow(w.id, artifact_type="final_markdown")
+                for a in arts:
+                    cj = a.content_json or {}
+                    if cj.get("markdown"):
+                        content = cj["markdown"]
+                        word_count = len(content.replace(" ", "").replace("\n", ""))
+                        return {
+                            "code": 0,
+                            "message": "生成成功",
+                            "data": {
+                                "articleId": f"gen_article_{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                                "title": request.ideaTitle,
+                                "content": content,
+                                "wordCount": word_count,
+                                "generatedAt": datetime.now().isoformat(),
+                            }
+                        }
+            err = (w2 and w2.error_message) or "图执行未完成"
+            logger.error("LangGraph 文章生成失败: %s", err)
+            raise HTTPException(status_code=500, detail=err)
 
         service = get_ai_service()
         content = service.generate_article(
@@ -217,7 +265,7 @@ def generate_article(
         # 统计字数
         word_count = len(content.replace(" ", "").replace("\n", ""))
         
-        logger.info(f"文章生成成功: wordCount={word_count}")
+        logger.info("文章生成成功: wordCount=%d", word_count)
         
         return {
             "code": 0,
@@ -234,6 +282,6 @@ def generate_article(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"生成文章异常: {str(e)}", exc_info=True)
+        logger.error("生成文章异常: %s", str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
 

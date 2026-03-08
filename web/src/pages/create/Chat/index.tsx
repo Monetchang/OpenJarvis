@@ -14,8 +14,8 @@ import type { WorkflowEvent, WsStatus, ArtifactMeta } from './types'
 const MAX_WS_RECONNECT_ATTEMPTS = 5
 const STORAGE_KEY_IDEA = 'create_chat_idea'
 
-const STYLE_OPTIONS = ['专业报告', '博客随笔', '营销文案', '技术教程', '新闻资讯']
-const AUDIENCE_OPTIONS = ['技术从业者', '普通消费者', '学生群体', '企业管理者', '创业者']
+const STYLE_OPTIONS = ['自动推断', '专业报告', '博客随笔', '营销文案', '技术教程', '新闻资讯']
+const AUDIENCE_OPTIONS = ['自动推断', '技术从业者', '普通消费者', '学生群体', '企业管理者', '创业者']
 
 function persistIdea(idea: Idea) {
   try {
@@ -121,8 +121,8 @@ export default function Chat() {
   }, [location.state])
 
   const [phase, setPhase] = useState<'config' | 'running'>('config')
-  const [style, setStyle] = useState(STYLE_OPTIONS[0])
-  const [audience, setAudience] = useState(AUDIENCE_OPTIONS[0])
+  const [style, setStyle] = useState('自动推断')
+  const [audience, setAudience] = useState('自动推断')
   const startedRef = useRef(false)
 
   const [workflowId, setWorkflowId] = useState<string | null>(null)
@@ -411,8 +411,8 @@ export default function Chat() {
         input: {
           title: idea.title,
           refs,
-          style,
-          audience,
+          style: style === '自动推断' ? 'auto' : style,
+          audience: audience === '自动推断' ? 'auto' : audience,
           language: 'zh-CN',
           length: 'medium',
           idea_id: idea.id,
@@ -535,9 +535,9 @@ export default function Chat() {
             </div>
             <div className="text-sm mt-1">
               <span className="text-gray-500">已选：</span>
-              <span>{style}</span>
+              <span>{style === '自动推断' ? '风格自动推断' : style}</span>
               <span className="text-gray-400 mx-1">/</span>
-              <span>{audience}</span>
+              <span>{audience === '自动推断' ? '受众自动推断' : audience}</span>
             </div>
           </Card>
           {(() => {

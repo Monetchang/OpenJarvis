@@ -11,6 +11,7 @@ import re
 from typing import List, Optional, Dict, Any, Callable
 from app.core.config import settings
 from app.core.ai import AIClient, AITranslator, MTTranslator, BlogTopicsGenerator, TranslationResult, BatchTranslationResult, BlogTopicsResult
+from app.core.prompts.packs import get_pack_for_article_type
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +161,22 @@ class AIService:
             language_desc="中文" if language == "zh-CN" else "英文",
         )
         messages = [{"role": "user", "content": prompt}]
-        return self.ai_client.chat(messages)
+        return self.ai_client.chat(messages, temperature=0.7)
+
+    def style_polish(
+        self,
+        article_md: str,
+        style_profile: str = "专业报告",
+        audience_profile: str = "技术从业者",
+    ) -> str:
+        """风格精修：术语一致性、段落结构、语气，低温度。"""
+        prompt = self._load_prompt("ai_style_polish_prompt").format(
+            style_profile=style_profile,
+            audience_profile=audience_profile,
+            article_md=article_md[:12000],
+        )
+        messages = [{"role": "user", "content": prompt}]
+        return self.ai_client.chat(messages, temperature=0.2) or article_md
 
     def interpret_article(self, title: str, content: str, source: str = "") -> Dict[str, Any]:
         """解读文章内容，返回结构化 JSON 解读结果。"""
@@ -170,7 +186,7 @@ class AIService:
             source=source or "未知来源",
             content=(content or "")[:3000],
         )
-        raw = self.ai_client.chat([{"role": "user", "content": prompt}]) or ""
+        raw = self.ai_client.chat([{"role": "user", "content": prompt}], temperature=0.2) or ""
         # 尝试解析 JSON，失败时降级返回原始文本
         text = raw.strip()
         m = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
@@ -199,14 +215,18 @@ class AIService:
         ref_cards: List[Dict[str, Any]],
         style: str = "专业报告",
         audience: str = "技术从业者",
+        article_type: Optional[str] = None,
         on_thinking: Optional[Callable[[str], None]] = None,
         on_thinking_chunk: Optional[Callable[[str], None]] = None,
     ) -> Dict[str, Any]:
         """根据标题与参考卡片生成大纲，返回 {"sections": [{"id", "title", "description"}, ...]}。"""
+        pack = get_pack_for_article_type(article_type or "general")
+        prompt_module = pack["outline"]
+        temp = pack["params"].get("temperature_outline", 0.3)
         refs_block = ""
         for i, c in enumerate(ref_cards[:10], 1):
             refs_block += f"\n[{i}] {c.get('title', '')}\n{c.get('summary', '')[:1200]}\n"
-        prompt = self._load_prompt("ai_blog_outline_prompt").format(
+        prompt = self._load_prompt(prompt_module).format(
             title=title,
             style=style,
             audience=audience,
@@ -217,7 +237,7 @@ class AIService:
         if on_thinking_chunk:
             raw_parts = []
             thinking_parts = []
-            for content_delta, thinking_delta in self.ai_client.chat_full_stream(messages):
+            for content_delta, thinking_delta in self.ai_client.chat_full_stream(messages, temperature=temp):
                 if content_delta:
                     raw_parts.append(content_delta)
                 if thinking_delta and on_thinking_chunk:
@@ -227,7 +247,7 @@ class AIService:
             if on_thinking and thinking_parts:
                 on_thinking("".join(thinking_parts))
         else:
-            result = self.ai_client.chat_full(messages)
+            result = self.ai_client.chat_full(messages, temperature=temp)
             raw = result["content"]
             if on_thinking and result.get("thinking"):
                 on_thinking(result["thinking"])
@@ -246,7 +266,7 @@ class AIService:
             refs_block += f"\n[{i}] ref_id={rid}\n标题: {c.get('title', '')}\n{c.get('summary', '')[:2000]}\n"
         prompt = self._load_prompt("ai_synthesize_refs_prompt").format(refs_block=refs_block.strip() or "（无）")
         messages = [{"role": "user", "content": prompt}]
-        raw = self.ai_client.chat(messages)
+        raw = self.ai_client.chat(messages, temperature=0.2)
         out = _parse_synthesize_refs_json(raw, ref_cards)
         logger.info("[synthesize_refs] in=%d out=%d", len(ref_cards), len(out))
         return out
@@ -258,8 +278,12 @@ class AIService:
         outline: Dict[str, Any],
         style: str = "专业报告",
         audience: str = "技术从业者",
+        article_type: Optional[str] = None,
     ) -> Dict[str, Any]:
         """根据标题、ref_cards、outline 生成写作蓝图。"""
+        pack = get_pack_for_article_type(article_type or "general")
+        prompt_module = pack["plan"]
+        temp = pack["params"].get("temperature_plan", 0.3)
         outline_block = ""
         for s in (outline.get("sections") or []):
             outline_block += f"- {s.get('id', '')} {s.get('title', '')}: {s.get('description', '')}\n"
@@ -269,7 +293,7 @@ class AIService:
             refs_block += f"\n[{rid}] {c.get('title', '')}\n"
             for kp in c.get("key_points") or []:
                 refs_block += f"  - {kp.get('kp_id', '')}: {kp.get('text', '')}\n"
-        prompt = self._load_prompt("ai_plan_article_prompt").format(
+        prompt = self._load_prompt(prompt_module).format(
             title=title,
             style=style,
             audience=audience,
@@ -277,7 +301,7 @@ class AIService:
             refs_block=refs_block.strip() or "（无）",
         )
         messages = [{"role": "user", "content": prompt}]
-        raw = self.ai_client.chat(messages)
+        raw = self.ai_client.chat(messages, temperature=temp)
         return _parse_plan_article_json(raw)
 
     def generate_blog_section(
@@ -291,6 +315,7 @@ class AIService:
         style: str = "专业报告",
         audience: str = "技术从业者",
         article_title: str = "",
+        article_type: Optional[str] = None,
         on_thinking: Optional[Callable[[str], None]] = None,
         on_thinking_chunk: Optional[Callable[[str], None]] = None,
     ) -> str:
@@ -312,7 +337,10 @@ class AIService:
         refs_block = ""
         for c in ref_cards[:10]:
             refs_block += f"\n- {c.get('title', '')} {c.get('url', '')}\n  {c.get('summary', '')[:500]}\n"
-        prompt = self._load_prompt("ai_blog_section_prompt").format(
+        pack = get_pack_for_article_type(article_type or "general")
+        prompt_module = pack["section"]
+        temp = pack["params"].get("temperature_section", 0.7)
+        prompt = self._load_prompt(prompt_module).format(
             article_title=article_title or "（未指定）",
             section_title=section_title,
             section_goal=section_goal,
@@ -327,7 +355,7 @@ class AIService:
         if on_thinking_chunk:
             content_parts = []
             thinking_parts = []
-            for content_delta, thinking_delta in self.ai_client.chat_full_stream(messages):
+            for content_delta, thinking_delta in self.ai_client.chat_full_stream(messages, temperature=temp):
                 if content_delta:
                     content_parts.append(content_delta)
                 if thinking_delta and on_thinking_chunk:
@@ -337,7 +365,7 @@ class AIService:
             if on_thinking and thinking_parts:
                 on_thinking("".join(thinking_parts))
         else:
-            result = self.ai_client.chat_full(messages)
+            result = self.ai_client.chat_full(messages, temperature=temp)
             content = (result["content"] or "").strip()
             if on_thinking and result.get("thinking"):
                 on_thinking(result["thinking"])

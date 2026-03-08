@@ -26,6 +26,7 @@ OpenJarvis 是智能写作助手，整合 RSS 订阅、AI 选题生成与 LangGr
 
 ## 🔥 最新更新
 
+- 2026-03-08 文章质量优化：LLM 温度按任务区分（JSON 0.2、创作 0.7）；风格/受众推断（LLM 为主、规则兜底）；prompt packs（教程/论文解读/商业分析）；LangGraph 流程 infer→fetch→synthesize→outline→plan→write_sections→assemble→fact_check→style_polish→quality_gate；fetch 使用 trafilatura 抽取正文并缓存；选题去重；前端风格/受众支持「自动推断」。
 - 2026-03-07 定时任务修复：`BackgroundScheduler` 现在初始化时传入 `TIMEZONE`，确保 cron 在容器 UTC 环境下也能按本地时间触发（之前默认 UTC 导致错过推送）。
 - 2026-03-07 title_zh 拆分：原始英文标题保留在 `title`，中文翻译单独存入 `title_zh`；关键词过滤同时匹配两者；已翻译的 backfill 记录不再重复翻译；移除 summary 翻译。
 - 2026-03-06 飞书推送：每日 digest 推送到飞书（与邮件并列）；支持自定义机器人 webhook 与 Flow webhook；`.env` 配置 `FEISHU_WEBHOOK_URL`（分号分隔多账号）；`POST /subscribe/feishu` 订阅 API；双语标题 `中文 (English)`；富文本分区、选题关联文章；`scripts/test_feishu_push.py`、`scripts/test_email_push.py` 测试脚本。
