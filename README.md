@@ -26,6 +26,7 @@ OpenJarvis is an intelligent writing assistant that combines RSS subscription, A
 
 ## 🔥 Latest Updates
 
+- 2026-03-09 Scheduler: Replaced APScheduler with croniter-based polling (30s); reliable daily digest trigger; startup catchup when cron time already passed.
 - 2026-03-08 Article quality: LLM temperature per task (0.2 for JSON, 0.7 for creative); style/audience inference (LLM + rule fallback); prompt packs (tutorial/paper_review/business); LangGraph pipeline infer→fetch→synthesize→outline→plan→write_sections→assemble→fact_check→style_polish→quality_gate; fetch uses trafilatura + cache; topic dedup; frontend "自动推断" for style/audience.
 - 2026-03-07 Scheduler fix: `BackgroundScheduler` now initialized with `TIMEZONE` so cron fires at the correct local time regardless of container timezone (was UTC by default).
 - 2026-03-07 title_zh split: original English title preserved in `title`; Chinese translation stored separately in `title_zh`; keyword filtering matches both; backfill skips already-translated items; summary translation removed.

@@ -3,13 +3,9 @@
 RSS 定时抓取调度：先检查数据库，有则直接用，无则抓取 -> 生成选题 -> 邮件推送
 """
 import logging
-import pytz
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
-
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 
 from app.core.database import get_db_context
 from app.core.config import settings
@@ -24,8 +20,6 @@ from app.services.email_service import send_digest
 from app.services.feishu import feishu_service
 
 logger = logging.getLogger(__name__)
-_scheduler = BackgroundScheduler(timezone=settings.TIMEZONE)
-JOB_ID = "rss_fetch"
 
 
 def _get_today_articles(db: Session, limit: int = 50) -> list:
@@ -153,70 +147,10 @@ def run_digest_job(force_fetch: bool = True, skip_when_no_fetch: bool = False) -
 
 
 def run_fetch_only_job():
-    """仅抓取，不推邮件。用于启动预抓取、冷启动补数据。"""
+    """仅抓取，不推邮件。用于启动预抓取。"""
     with get_db_context() as db:
         result = fetch_all_active_feeds(db, max_feeds=0)
         if result.get("success"):
             logger.info("[startup_fetch] 预抓取完成: %d 条", result.get("total_items", 0))
         else:
             logger.info("[startup_fetch] 预抓取跳过: %s", result.get("error", "unknown"))
-
-
-def _run_job():
-    result = run_digest_job(force_fetch=True, skip_when_no_fetch=False)
-    if not result["success"]:
-        logger.info("[scheduler] 无可用文章，跳过推送")
-    else:
-        logger.info("[scheduler] 已推送到 %d 个邮箱", result.get("sent", 0))
-
-
-def _should_catchup(cron_expr: str) -> bool:
-    """判断今天的 cron 时间是否已过但还未推送（用于容器重启后补跑）。"""
-    import pytz
-    from croniter import croniter
-    tz = pytz.timezone(getattr(settings, "TIMEZONE", "Asia/Shanghai"))
-    now = datetime.now(tz)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    it = croniter(cron_expr, today_start - timedelta(seconds=1))
-    next_fire = it.get_next(datetime)
-    # 今天有触发时间，且已经过了，且还在今天内
-    return next_fire.date() == now.date() and next_fire <= now
-
-
-def init_scheduler(cron_expr: str):
-    tz = getattr(settings, "TIMEZONE", "Asia/Shanghai")
-    _scheduler.add_job(
-        _run_job,
-        CronTrigger.from_crontab(cron_expr, timezone=tz),
-        id=JOB_ID,
-        misfire_grace_time=3600,
-    )
-    _scheduler.start()
-    # 容器重启时，若今天推送时间已过则立即补跑（延迟 30s，等预抓取完成）
-    if _should_catchup(cron_expr):
-        logger.info("[scheduler] 检测到今天推送时间已过，30s 后补跑")
-        tz = pytz.timezone(getattr(settings, "TIMEZONE", "Asia/Shanghai"))
-        _scheduler.add_job(
-            _run_job,
-            "date",
-            run_date=datetime.now(tz) + timedelta(seconds=30),
-            id="catchup_digest",
-        )
-    elif getattr(settings, "STARTUP_PREFETCH_ENABLED", True):
-        tz = pytz.timezone(getattr(settings, "TIMEZONE", "Asia/Shanghai"))
-        _scheduler.add_job(
-            run_fetch_only_job,
-            "date",
-            run_date=datetime.now(tz) + timedelta(seconds=15),
-            id="startup_fetch",
-        )
-
-
-def reschedule(cron_expr: str):
-    tz = getattr(settings, "TIMEZONE", "Asia/Shanghai")
-    _scheduler.reschedule_job(JOB_ID, trigger=CronTrigger.from_crontab(cron_expr, timezone=tz))
-    _scheduler.modify_job(JOB_ID, misfire_grace_time=3600)
-
-
-def shutdown():
-    _scheduler.shutdown(wait=False)
